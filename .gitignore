@@ -34,3 +34,6 @@ dist/
 inference.local.yaml
 label/sparks/
 venv/
+
+# forge certify regenerates the catalogue here to compare it. Disposable.
+.certify-tmp/

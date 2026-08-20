@@ -38,6 +38,7 @@ TRACK_FIELDS = [
     "lyric_sheet",   # path relative to repo root, or None
     "glitch_log",    # list of entries (see framework/schema/track.schema.json)
     "analysis",      # filled by `forge analyze`, never hand-edited
+    "sheet_mismatch_acknowledged",  # {reason} — a known, recorded discrepancy
     "created",
     "release_quarter",
     "compilation",

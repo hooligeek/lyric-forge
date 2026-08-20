@@ -92,6 +92,15 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_certify(args: argparse.Namespace) -> int:
+    from . import certify as certify_mod
+
+    cfg = config_mod.load()
+    cert = certify_mod.run(cfg)
+    _emit(args, cert.to_dict(), lambda d: certify_mod.format_result(cert))
+    return 0 if cert.approved else 1
+
+
 def cmd_docs(args: argparse.Namespace) -> int:
     from . import docs as docs_mod
 
@@ -1001,6 +1010,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("certify", help="run every gate; the fork-approval check")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_certify)
 
     p = sub.add_parser("docs", help="generate documentation")
     p.add_argument("kind", choices=["framework", "catalog", "agents"])
