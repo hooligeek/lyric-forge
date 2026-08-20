@@ -84,9 +84,16 @@ def _check_yaml_validity(rep: Report) -> None:
             )
 
 
-def run(cfg: Config, probe_audio: bool = True) -> Report:
+def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Report:
     rep = Report()
     _check_yaml_validity(rep)
+
+    if check_hashes:
+        from . import fingerprint as fp_mod
+
+        for track_id, field, detail in fp_mod.check_drift(cfg):
+            rep.add("ASSET_DRIFT", field, track_id, detail)
+
     excluded = cfg.excluded_audio
     total_tracks = 0
     total_audio = 0

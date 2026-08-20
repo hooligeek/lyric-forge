@@ -17,6 +17,7 @@ from . import analyze as analyze_mod
 from . import artwork_cmd as artwork_cmd_mod
 from . import audio as audio_mod
 from . import config as config_mod
+from . import fingerprint as fingerprint_mod
 from . import importer as importer_mod
 from . import ledger as ledger_mod
 from . import lyrics as lyrics_mod
@@ -67,7 +68,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
 def cmd_reconcile(args: argparse.Namespace) -> int:
     cfg = config_mod.load()
-    rep = reconcile_mod.run(cfg, probe_audio=not args.fast)
+    rep = reconcile_mod.run(cfg, probe_audio=not args.fast, check_hashes=not args.no_hash)
     print(reconcile_mod.format_report(rep))
     if args.strict and rep.findings:
         return 1
@@ -161,6 +162,12 @@ def cmd_artwork(args: argparse.Namespace) -> int:
             cfg, write=args.write, with_palette=not args.no_palette
         )
     )
+    return 0
+
+
+def cmd_fingerprint(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    print(fingerprint_mod.run(cfg, write=args.write))
     return 0
 
 
@@ -333,6 +340,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("reconcile", help="check audio, ledger, and lyric sheets agree")
     p.add_argument("--fast", action="store_true", help="skip ffprobe duration checks")
+    p.add_argument("--no-hash", action="store_true", help="skip asset drift checks")
     p.add_argument("--strict", action="store_true", help="exit 1 if any findings")
     p.set_defaults(func=cmd_reconcile)
 
@@ -363,6 +371,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--write", action="store_true", help="write artwork paths to the ledger")
     p.add_argument("--no-palette", action="store_true", help="skip palette extraction")
     p.set_defaults(func=cmd_artwork)
+
+    p = sub.add_parser("fingerprint", help="hash audio and artwork into the ledger")
+    p.add_argument("--write", action="store_true", help="record hashes")
+    p.set_defaults(func=cmd_fingerprint)
 
     p = sub.add_parser("relink", help="wire hand-authored lyric sheets into the ledger")
     p.set_defaults(func=cmd_relink)

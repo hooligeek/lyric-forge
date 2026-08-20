@@ -26,7 +26,9 @@ TRACK_FIELDS = [
     "era",           # pre-standard | acap
     "status",        # needs-backfill | wip | mastered | archived
     "audio",         # path relative to audio_root
+    "audio_sha256",  # pins the file the analysis block describes
     "artwork",       # path relative to artwork_root
+    "artwork_sha256",
     "duration_s",
     "suno",          # {style_prompt, declared_bpm, declared_key}
     "matrix",        # {suite, stance}
