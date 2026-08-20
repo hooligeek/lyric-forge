@@ -92,6 +92,53 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_ingest_audio(args: argparse.Namespace) -> int:
+    from . import ingest as ingest_mod
+
+    cfg = config_mod.load()
+    try:
+        result = ingest_mod.ingest(
+            cfg,
+            args.band,
+            args.track,
+            Path(args.file).expanduser(),
+            artwork=Path(args.artwork).expanduser() if args.artwork else None,
+            replace=args.replace,
+            move=args.move,
+        )
+    except (ingest_mod.IngestError, audio_mod.AudioError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.analyze:
+        # The analyser needs librosa and faster-whisper, which live in the venv.
+        # Say so plainly rather than dying on an ImportError three frames deep.
+        try:
+            import librosa  # noqa: F401
+        except ImportError:
+            print(
+                "\n!! --analyze needs the analysis extras. Re-run with the venv:\n"
+                f"   ./.venv/bin/python -m framework.forge analyze --band {args.band} "
+                f"--track {args.track} --write",
+                file=sys.stderr,
+            )
+        else:
+            rows = ledger_mod.load_band_tracks(cfg.bands[args.band])
+            track = next((t for t in rows if t.get("slug") == args.track), None)
+            song = None
+            rel = (track or {}).get("lyric_sheet")
+            if rel and (config_mod.REPO_ROOT / rel).exists():
+                song = lyrics_mod.load_sheet(config_mod.REPO_ROOT / rel)
+            src = cfg.audio_root / result.audio_rel
+            ta = analyze_mod.analyze_track(
+                src, args.band, args.track, track or {}, song, model_name=args.model
+            )
+            print(analyze_mod.format_track(ta, limit=6))
+            result.analysed = True
+
+    return _emit(args, result.to_dict(), lambda d: ingest_mod.format_result(result))
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     from . import context as context_mod
     from . import prompts as prompts_mod
@@ -746,6 +793,19 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("ingest-audio", help="file a render against a track and hash it")
+    p.add_argument("--band", required=True, help="band slug")
+    p.add_argument("--track", required=True, help="track slug")
+    p.add_argument("--file", required=True, help="the rendered audio")
+    p.add_argument("--artwork", help="cover art for the same track")
+    p.add_argument("--replace", action="store_true",
+                   help="supersede existing audio, archiving its analysis")
+    p.add_argument("--move", action="store_true", help="move rather than copy the source")
+    p.add_argument("--analyze", action="store_true", help="measure it immediately")
+    p.add_argument("--model", default="large-v3", help="whisper model for --analyze")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_ingest_audio)
 
     p = sub.add_parser("review", help="scan lyrics for issues; mechanical checks computed")
     p.add_argument("--lyrics", help="path to lyrics (any source, need not be ours)")

@@ -50,7 +50,18 @@ class Finding:
 # Reported for visibility but not a defect: a song still being written has no
 # audio yet, and `--strict` failing on that would make the gate unusable in CI
 # for exactly the work the tool exists to support.
-INFORMATIONAL = {"IN_PROGRESS"}
+INFORMATIONAL = {"IN_PROGRESS", "WIP_GAP"}
+
+# Stages at which a track claims to be finished, and its assets are therefore
+# expected to be complete. Before this, a missing cover or uncompiled sheet is
+# work not yet done rather than a defect — a render arrives from Suno before its
+# art does, and a sheet gets compiled after the take is chosen.
+FINISHED_STAGES = {"imported", "adjudicated", "mastered"}
+
+
+def _is_finished(stage: str) -> bool:
+    # `imported/analysed` and friends are composite labels for legacy tracks.
+    return stage.split("/")[0] in FINISHED_STAGES or stage in FINISHED_STAGES
 
 
 @dataclass
@@ -147,6 +158,18 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             # Demanding assets from a track at the spark stage would make the
             # tool unusable for new work — the thing it exists to support.
             stage = ledger_mod.get_nested(t, "lifecycle.stage") or "imported"
+            finished = _is_finished(stage)
+
+            def gap(kind: str, detail: str) -> None:
+                """An asset gap is a defect only once the track claims to be done."""
+                if finished:
+                    rep.add(kind, slug, subject, detail)
+                else:
+                    rep.add(
+                        "WIP_GAP", slug, subject,
+                        f"{detail} (stage '{stage}' — expected before mastered)",
+                    )
+
             if stage in PRE_RENDER_STAGES:
                 rep.add(
                     "IN_PROGRESS",
@@ -196,7 +219,7 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
 
             art = t.get("artwork")
             if not art:
-                rep.add("NO_ARTWORK", slug, subject, "no cover art linked")
+                gap("NO_ARTWORK", "no cover art linked")
             elif not (cfg.artwork_root / art).exists():
                 rep.add(
                     "BROKEN_ARTWORK_REF", slug, subject, f"artwork points at missing {art}"
@@ -212,7 +235,7 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                 else:
                     rep.add("BROKEN_SHEET_REF", slug, subject, f"lyric_sheet points at missing {sheet}")
             if not sheet_ok:
-                rep.add("NO_LYRIC_SHEET", slug, subject, "no lyric sheet on disk")
+                gap("NO_LYRIC_SHEET", "no lyric sheet on disk")
 
             era = t.get("era") or "pre-standard"
             required = list(ALWAYS_WANTED)
@@ -222,7 +245,7 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                 if path == "lyric_sheet":
                     continue  # handled above with existence checking
                 if ledger_mod.get_nested(t, path) in (None, "", []):
-                    rep.add("MISSING_FIELD", slug, subject, f"{human} not set (era: {era})")
+                    gap("MISSING_FIELD", f"{human} not set (era: {era})")
 
         # --- lyric sheets with no ledger entry -------------------------------
         lyrics_dir = band.dir / "lyrics"
