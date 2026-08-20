@@ -14,8 +14,12 @@
 # references the spark by id so provenance survives without the text.
 label/sparks/
 
-# Credentials for direct-API mode. Env vars are preferred; if a file is used it
-# stays local. Never commit a key.
+# Direct-API settings. Holds model choices, never keys — keys come from the
+# environment. Local anyway, since provider and model are a per-operator choice.
+inference.local.yaml
+
+# Credentials never belong in the tree at all. These patterns are a backstop, not
+# a supported location.
 .env
 .env.*
 !.env.example

@@ -1,0 +1,36 @@
+---
+# Copy to inference.local.yaml and edit. That filename is gitignored.
+#
+# This file holds SETTINGS, never credentials. `api_key_env` names the
+# environment variable to read; the key itself is never written here and never
+# passed as a command-line argument — a key in a file gets committed eventually,
+# and a key in argv turns up in shell history and process listings.
+#
+#   export ANTHROPIC_API_KEY=...
+#   forge infer --id generate-song --band warhead --mode api
+#
+# Mode `agent` needs none of this. It renders the prompt for whatever agent is
+# already driving the tool, which is the primary way this app is meant to be
+# used; the API path exists for people not working inside an agentic editor.
+
+provider: anthropic
+
+providers:
+  anthropic:
+    model: claude-opus-5
+    api_key_env: ANTHROPIC_API_KEY
+    max_tokens: 8192
+    # Left unset by default so the provider's own default applies. Raising it
+    # loosens the stance and register constraints the prompts work hard to
+    # impose, which is usually the opposite of what this tool is for.
+    # temperature: 1.0
+
+  openai:
+    model: gpt-5
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 8192
+
+  google:
+    model: gemini-2.5-pro
+    api_key_env: GOOGLE_API_KEY
+    max_tokens: 8192

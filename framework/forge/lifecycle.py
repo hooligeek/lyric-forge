@@ -78,7 +78,10 @@ STAGES: list[Stage] = [
         order=2,
         gate=MACHINE,
         summary="Lyrics generated against the brief.",
-        requires=["lyric_sheet", "provenance.prompt_template"],
+        # A draft is not a compiled sheet. Requiring lyric_sheet here collapsed
+        # three distinct stages — draft, review, sheet — into one, and meant a
+        # track could not be at `draft` without already being past it.
+        requires=["provenance.draft", "provenance.prompt_template"],
     ),
     Stage(
         id="review",
@@ -97,7 +100,7 @@ STAGES: list[Stage] = [
         order=4,
         gate=HUMAN,
         summary="Approved for render: style prompt, stacked cues, declared tempo.",
-        requires=["suno.style_prompt", "suno.declared_bpm"],
+        requires=["lyric_sheet", "suno.style_prompt", "suno.declared_bpm"],
         asks=(
             "Approve the sheet for Suno. This fixes the style prompt and the "
             "declared tempo, which the analyser will later measure against."

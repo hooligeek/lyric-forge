@@ -92,6 +92,155 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_infer(args: argparse.Namespace) -> int:
+    from . import context as context_mod
+    from . import inference as inf_mod
+    from . import prompts as prompts_mod
+
+    cfg = config_mod.load()
+    if args.band and args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+
+    try:
+        prompt = prompts_mod.load(args.id)
+    except prompts_mod.PromptError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    def _read(path: str | None) -> str:
+        if not path:
+            return ""
+        p = Path(path).expanduser()
+        if not p.exists():
+            raise FileNotFoundError(f"no such file: {p}")
+        return p.read_text(encoding="utf-8")
+
+    try:
+        ctx = context_mod.build(
+            cfg,
+            band=args.band,
+            track=args.track,
+            spark=_read(args.spark),
+            lyrics=_read(args.lyrics),
+            extra_context=args.context or "",
+            vision=args.vision or "",
+        )
+        rendered = prompts_mod.render(prompt, ctx)
+    except (prompts_mod.PromptError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    out_path = None
+    if args.out:
+        out_path = Path(args.out).expanduser()
+    elif args.write:
+        out_path = inf_mod.default_output(cfg, prompt.outputs, args.band, args.track)
+        if out_path is None:
+            print(
+                f"--write needs a conventional destination, and there is none for "
+                f"outputs '{prompt.outputs}' without --band and --track. "
+                f"Pass --out explicitly.",
+                file=sys.stderr,
+            )
+            return 2
+
+    # --- agent mode --------------------------------------------------------
+    if args.mode == "agent":
+        recorded = None
+        if args.record:
+            if not (args.band and args.track):
+                print("--record needs --band and --track", file=sys.stderr)
+                return 2
+            recorded = inf_mod.record_provenance(
+                cfg, args.band, args.track, rendered, "agent", None, out_path
+            )
+            if not recorded["stage_stamped"]:
+                print(
+                    f"Provenance recorded, but no artefact at "
+                    f"{out_path or '(no --out/--write given)'} — the stage is not "
+                    f"stamped. In agent mode the output is written after this "
+                    f"returns, so run --record again once it exists.",
+                    file=sys.stderr,
+                )
+        data = {
+            "mode": "agent",
+            "recorded": recorded,
+            "prompt": rendered.to_dict(),
+            "output_path": str(out_path) if out_path else None,
+            "instruction": (
+                "Act on the prompt text and write the result to output_path. "
+                "Then record it: forge infer --record."
+            ),
+        }
+        if args.json:
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+        else:
+            print(rendered.text)
+            if out_path:
+                print(f"\n--- write your response to: {out_path}", file=sys.stderr)
+        return 0
+
+    # --- api mode ----------------------------------------------------------
+    try:
+        provider = inf_mod.load_provider(args.provider, args.model)
+    except inf_mod.InferenceError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.dry_run:
+        try:
+            req = inf_mod.build_request(provider, rendered.text)
+        except inf_mod.InferenceError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        data = {
+            "mode": "api",
+            "dry_run": True,
+            "prompt": {k: v for k, v in rendered.to_dict().items() if k != "text"},
+            "prompt_chars": len(rendered.text),
+            "request": req.redacted(),
+        }
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return 0
+
+    try:
+        completion = inf_mod.call(provider, rendered.text)
+    except inf_mod.InferenceError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(completion.text, encoding="utf-8")
+
+    if args.record:
+        if not (args.band and args.track):
+            print("--record needs --band and --track", file=sys.stderr)
+            return 2
+        inf_mod.record_provenance(
+            cfg, args.band, args.track, rendered, "api", completion.model, out_path
+        )
+
+    data = {
+        "mode": "api",
+        "prompt": {k: v for k, v in rendered.to_dict().items() if k != "text"},
+        "completion": completion.to_dict(),
+        "output_path": str(out_path) if out_path else None,
+    }
+    if args.json:
+        data["text"] = completion.text
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+    else:
+        print(completion.text)
+        print(
+            f"\n--- {completion.provider}/{completion.model}"
+            + (f" -> {out_path}" if out_path else ""),
+            file=sys.stderr,
+        )
+    return 0
+
+
 def cmd_ingest_audio(args: argparse.Namespace) -> int:
     from . import ingest as ingest_mod
 
@@ -793,6 +942,28 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("infer", help="run a prompt: via the surrounding agent, or an API")
+    p.add_argument("--id", required=True, help="prompt id")
+    p.add_argument("--mode", choices=["agent", "api"], default="agent")
+    p.add_argument("--band", help="band slug")
+    p.add_argument("--track", help="track slug")
+    p.add_argument("--spark", help="path to a spark file")
+    p.add_argument("--lyrics", help="path to lyrics")
+    p.add_argument("--vision", help="vision text, for derive-band")
+    p.add_argument("--context", help="ad-hoc direction")
+    p.add_argument("--provider", choices=["anthropic", "openai", "google"],
+                   help="override the configured provider (api mode)")
+    p.add_argument("--model", help="override the configured model (api mode)")
+    p.add_argument("--out", help="write the result here")
+    p.add_argument("--write", action="store_true",
+                   help="write to the conventional destination for this output type")
+    p.add_argument("--record", action="store_true",
+                   help="record prompt/model provenance and stamp the draft stage")
+    p.add_argument("--dry-run", action="store_true",
+                   help="api mode: show the request that would be sent, send nothing")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_infer)
 
     p = sub.add_parser("ingest-audio", help="file a render against a track and hash it")
     p.add_argument("--band", required=True, help="band slug")

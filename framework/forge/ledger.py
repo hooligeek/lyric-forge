@@ -59,6 +59,8 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
         "provenance": {
             "spark": None,
             "brief": None,
+            "brief_confirmed": False,
+            "draft": None,
             "prompt_template": None,
             "prompt_version": None,
             "model": None,
