@@ -92,6 +92,105 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_prompt(args: argparse.Namespace) -> int:
+    from . import context as context_mod
+    from . import prompts as prompts_mod
+
+    if args.action == "list":
+        data = {"prompts": [p.to_dict() for p in prompts_mod.load_all()]}
+
+        def fmt(d: dict) -> str:
+            out = ["=" * 78, "PROMPT LIBRARY", "=" * 78]
+            for p in d["prompts"]:
+                out.append(f"{p['ref']:<24} {p['title']}")
+                out.append(f"{'':<24} outputs: {p['outputs']}  runtimes: {', '.join(p['runtimes'])}")
+                out.append(f"{'':<24} requires {len(p['requires'])}, optional {len(p['optional'])}")
+                out.append("")
+            return "\n".join(out)
+
+        return _emit(args, data, fmt)
+
+    if args.action == "lint":
+        problems: dict[str, list[str]] = {}
+        for p in prompts_mod.load_all():
+            found = prompts_mod.lint(p)
+            if found:
+                problems[p.ref] = found
+        data = {"problems": problems, "clean": not problems}
+
+        def fmt(d: dict) -> str:
+            if d["clean"]:
+                return "All prompts consistent: every slot used is declared, every slot declared is used."
+            out = ["PROMPT LINT"]
+            for ref, items in d["problems"].items():
+                out.append(f"  {ref}")
+                for i in items:
+                    out.append(f"    ! {i}")
+            return "\n".join(out)
+
+        print(fmt(data) if not args.json else json.dumps(data, indent=2))
+        return 1 if problems else 0
+
+    if not args.id:
+        print("--id is required for show/render", file=sys.stderr)
+        return 2
+
+    try:
+        prompt = prompts_mod.load(args.id)
+    except prompts_mod.PromptError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.action == "show":
+        print(prompt.body if not args.json else json.dumps(prompt.to_dict(), indent=2))
+        return 0
+
+    # render
+    cfg = config_mod.load()
+    if args.band and args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+
+    lyrics = ""
+    if args.lyrics:
+        lp = Path(args.lyrics).expanduser()
+        if not lp.exists():
+            print(f"no such lyrics file: {lp}", file=sys.stderr)
+            return 2
+        lyrics = lp.read_text(encoding="utf-8")
+
+    spark = ""
+    if args.spark:
+        sp = Path(args.spark).expanduser()
+        if not sp.exists():
+            print(f"no such spark file: {sp}", file=sys.stderr)
+            return 2
+        spark = sp.read_text(encoding="utf-8")
+
+    ctx = context_mod.build(
+        cfg,
+        band=args.band,
+        suite=args.suite,
+        stance=args.stance,
+        bpm=args.bpm,
+        spark=spark,
+        lyrics=lyrics,
+        extra_context=args.context or "",
+        vision=args.vision or "",
+    )
+    try:
+        rendered = prompts_mod.render(prompt, ctx)
+    except prompts_mod.PromptError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(rendered.to_dict(), indent=2, ensure_ascii=False))
+    else:
+        print(rendered.text)
+    return 0
+
+
 def cmd_bootstrap(args: argparse.Namespace) -> int:
     cfg = config_mod.load()
     excluded = cfg.excluded_audio
@@ -415,6 +514,20 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("prompt", help="the prompt library: list, show, lint, render")
+    p.add_argument("action", choices=["list", "show", "lint", "render"])
+    p.add_argument("--id", help="prompt id, for show/render")
+    p.add_argument("--band", help="band slug — fills band, dossier, suite, register slots")
+    p.add_argument("--suite", help="override the proposed suite")
+    p.add_argument("--stance", help="override the proposed stance")
+    p.add_argument("--bpm", type=int, help="override the proposed tempo")
+    p.add_argument("--lyrics", help="path to a lyric file (for review/compile)")
+    p.add_argument("--spark", help="path to a spark file")
+    p.add_argument("--vision", help="vision text (for derive-band)")
+    p.add_argument("--context", help="ad-hoc direction for this run")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_prompt)
 
     p = sub.add_parser("bootstrap", help="seed band ledgers from audio on disk")
     p.set_defaults(func=cmd_bootstrap)
