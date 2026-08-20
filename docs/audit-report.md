@@ -1,5 +1,15 @@
 # Adversarial audit — 2026-08-20
 
+> **Status: historical.** This is a point-in-time adversarial review commissioned
+> on 2026-08-20 against commit `a1d6037`, kept as evidence that the project was
+> reviewed by something other than its author. **All 22 findings have since been
+> addressed** — see the three `fix:` commits that follow it. Read it for the
+> method and the calibration section, not as a current defect list.
+>
+> The brief that produced it is [adversarial-audit.md](adversarial-audit.md), and
+> it is reusable: any fork should run it.
+
+
 Independent review. Run in a detached `git worktree` at `/home/hooligeek/audit-scratch`;
 the repository under review was verified clean (`git status --porcelain` empty) before
 and after every probe.

@@ -1,0 +1,87 @@
+name: gates
+
+# Runs on every branch, so a label fork is held to the same checks as the
+# template. The catalogue-specific gates skip themselves when there is no
+# catalogue, which is what main looks like.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: nothing here needs it, but a shallow clone makes the
+          # staleness diff below confusing to debug when it fails.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip -q
+          pip install -e . -q
+
+      # --- the gates that always apply -----------------------------------
+      - name: reconcile
+        run: forge reconcile --strict
+
+      - name: prompt library
+        run: forge prompt lint
+
+      # --- generated artefacts must not be stale --------------------------
+      #
+      # Documentation generated from a ledger is only trustworthy if it came from
+      # THIS ledger. Regenerate and fail on any diff: a stale catalogue is a false
+      # claim about the catalogue, and it is invisible unless something checks.
+      - name: regenerate
+        run: |
+          forge docs framework
+          forge docs agents
+          forge bundle fresh
+          if [ -f label/label.yaml ] && [ -s label/label.yaml ]; then
+            forge docs catalog || true
+          fi
+
+      - name: artefacts are current
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Generated artefacts are stale. Run the generators and commit."
+            git diff --stat
+            git diff
+            exit 1
+          fi
+          echo "All generated artefacts match their sources."
+
+      # --- fork certification ---------------------------------------------
+      #
+      # Only meaningful where a catalogue exists. On the template branch there are
+      # no bands, so this reports "no catalogue" and passes rather than failing a
+      # branch it was never about.
+      - name: certify
+        run: |
+          bands=$(forge status --json | python -c 'import json,sys; print(json.load(sys.stdin)["bands"])')
+          if [ "$bands" = "0" ]; then
+            echo "No bands configured — this is the template branch. Certification does not apply."
+            exit 0
+          fi
+          forge certify
+
+      - name: certification report
+        if: always()
+        run: forge certify --json > certification.json || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: certification
+          path: certification.json
+          if-no-files-found: ignore

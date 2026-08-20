@@ -58,6 +58,14 @@ compile a NotebookLM bundle
 | `--out` | destination directory |
 | `--json` | structured output |
 
+## `certify`
+
+run every gate; the fork-approval check
+
+| Option | Meaning |
+| --- | --- |
+| `--json` | structured output |
+
 ## `decode`
 
 populate the canonical PCM cache

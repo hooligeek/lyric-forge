@@ -8,6 +8,8 @@
 | [Lifecycle](lifecycle.md) | The nine stages and what each gate asks for |
 | [Commands](commands.md) | Full command reference |
 | `AGENTS.md` (repo root) | Rules for an agent working here — also emitted as `CLAUDE.md`, `.github/copilot-instructions.md` and `.kiro/steering/` |
+| [Adversarial audit brief](adversarial-audit.md) | A reusable brief for an independent security, code and docs review. Any fork should run it. |
+| [Audit report](audit-report.md) | Historical: the 2026-08-20 review, all findings since addressed. Kept for its method and calibration. |
 
 `lifecycle.md` and `commands.md` are generated from the source. Regenerate after
 any change:
