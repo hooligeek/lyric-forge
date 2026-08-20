@@ -52,7 +52,7 @@ TERMINATOR_RE = re.compile(r"^\s*end\b", re.IGNORECASE)
 # markdown headings or horizontal rules, so this is safe and catches every
 # between-track preamble regardless of which fields a given harvest emitted.
 STRUCTURE_RE = re.compile(
-    r"^\s*(#{1,6}\s|[-=*_~]{3,}\s*$|VECTOR SOUL RECORDS|LABEL OFFICER STAMP)",
+    r"^\s*(#{1,6}\s|[-=*_~]{3,}\s*$)",
     re.IGNORECASE,
 )
 
@@ -62,18 +62,39 @@ MAX_LYRIC_LINE = 300
 # A line that is nothing but a parenthetical is a stage direction, not a lyric.
 PAREN_ONLY_RE = re.compile(r"^\s*[\(\[][^)\]]*[\)\]]\s*$")
 
-# Lines that are seal/metadata furniture, never lyrics or titles.
-FURNITURE_RE = re.compile(
-    r"^\s*(-{5,}|={5,}|\*{3,}|"
-    r"VECTOR SOUL RECORDS|LABEL OFFICER STAMP|BAND ID|DOCUMENT CLASS|"
-    r"COMPLIANCE (REVISION|STATUS)|AUTHENTICITY ENVELOPE|PROJECT:|CATALOG:|"
+# Lines that are metadata furniture in a harvest document, never lyrics or titles.
+#
+# These are GENERIC document-structure markers only. Label-specific banner text
+# used to live here — "VECTOR SOUL RECORDS", "LABEL OFFICER STAMP" — which put one
+# label's private vocabulary inside the framework and falsified the claim that
+# `framework/` is liftable into any project untouched. A different label's harvest
+# would also have parsed worse, because its own banners were not listed.
+#
+# Per-label markers now come from `label.yaml: import.furniture_markers` and are
+# merged in at parse time by `extra_furniture()`.
+GENERIC_FURNITURE = (
+    r"-{5,}|={5,}|\*{3,}|"
+    r"BAND ID|DOCUMENT CLASS|COMPLIANCE (REVISION|STATUS)|PROJECT:|CATALOG:|"
     r"Track Title|BPM ?/ ?Key|Suno Style|Lyrical Matrix Origin|Compilation|"
-    r"Completion Status|Standardized Tempo|Musical Key|Band ID|Creation Date|"
+    r"Completion Status|Standardized Tempo|Musical Key|Creation Date|"
     r"Release Quarter|STATUS|STYLE|TEMPO|BPM|KEY|SUITE|MATRIX|GLITCH|VERSION|"
     r"PRIMARY|SONIC|PRODUCTION|ANOMAL|PRESERV|💿|🎼|🎤|⚠️|"
-    r"###? ?(RELEASE|PRODUCTION|SONIC|LYRIC|COMPLETE))",
-    re.IGNORECASE,
+    r"###? ?(RELEASE|PRODUCTION|SONIC|LYRIC|COMPLETE)"
 )
+
+FURNITURE_RE = re.compile(rf"^\s*({GENERIC_FURNITURE})", re.IGNORECASE)
+
+
+def set_label_furniture(markers: list[str]) -> None:
+    """Extend the furniture pattern with this label's own banner text.
+
+    Called from config load. Keeps label vocabulary out of the framework while
+    still letting a label describe the documents it actually has to import.
+    """
+    global FURNITURE_RE
+    extra = "|".join(re.escape(m) for m in markers if m)
+    pattern = f"{GENERIC_FURNITURE}|{extra}" if extra else GENERIC_FURNITURE
+    FURNITURE_RE = re.compile(rf"^\s*({pattern})", re.IGNORECASE)
 
 # Title candidates in priority tiers. An explicit "TRACK 01: X" heading always
 # beats a bare capitalised line, because harvest documents put metadata lines

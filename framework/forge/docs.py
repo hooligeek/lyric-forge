@@ -369,9 +369,16 @@ song. Nothing else — no install, no command line.
 
 ```bash
 python3 -m venv .venv
-./.venv/bin/pip install pyyaml                        # core
-./.venv/bin/pip install librosa soundfile faster-whisper   # analysis extras
+./.venv/bin/pip install -e .                # core, and provides the `forge` command
+./.venv/bin/pip install -e '.[analysis]'    # adds the audio-analysis extras
 ```
+
+Python **3.12 or newer**. `forge docs` reads argparse internals to generate the
+command reference and those attribute names are not public API.
+
+Every command below is written as `forge`. That command exists only after the
+editable install above — without it, use `python3 -m framework.forge` instead.
+The two are the same entry point.
 
 `ffmpeg` and `ffprobe` must be on `PATH` — the audio and artwork pipelines both
 use them. Core commands run on stdlib plus `pyyaml`; only `forge analyze` needs

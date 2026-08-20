@@ -166,7 +166,7 @@ def create(
 
     entry = ledger_mod.blank_track(track_id, title or f"(untitled — spark {sid})", band)
     entry["slug"] = slug
-    entry["era"] = "acap"
+    entry["era"] = cfg.current_era
     entry["status"] = "wip"
     entry["provenance"] = {
         "spark": sid,

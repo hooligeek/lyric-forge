@@ -112,12 +112,23 @@ def _check_yaml_validity(rep: Report) -> None:
 def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Report:
     rep = Report()
     _check_yaml_validity(rep)
+    if any(f.kind == "INVALID_YAML" for f in rep.findings):
+        # Stop here. Everything below reads those files, so continuing meant the
+        # process died on the malformed YAML *after* computing the diagnostic and
+        # before printing it — rc=1 with zero output.
+        rep.stats = {"aborted": "unparseable label data"}
+        return rep
 
     if check_hashes:
         from . import fingerprint as fp_mod
 
-        for track_id, field, detail in fp_mod.check_drift(cfg):
-            rep.add("ASSET_DRIFT", field, track_id, detail)
+        try:
+            for track_id, field, detail in fp_mod.check_drift(cfg):
+                rep.add("ASSET_DRIFT", field, track_id, detail)
+        except ledger_mod.LedgerError as exc:
+            # This ran before the per-band guard and so raised first.
+            rep.add("INVALID_LEDGER", "-", "ledger", str(exc))
+            return rep
 
     excluded = cfg.excluded_audio
     total_tracks = 0
@@ -125,7 +136,11 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
     with_sheet = 0
 
     for slug, band in cfg.bands.items():
-        tracks = ledger_mod.load_band_tracks(band)
+        try:
+            tracks = ledger_mod.load_band_tracks(band)
+        except ledger_mod.LedgerError as exc:
+            rep.add("INVALID_LEDGER", slug, band.tracks_file.name, str(exc))
+            continue
         by_slug = ledger_mod.as_dict(tracks)
         total_tracks += len(tracks)
 
@@ -248,7 +263,7 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
 
             era = t.get("era") or "pre-standard"
             required = list(ALWAYS_WANTED)
-            if era == "acap":
+            if era == cfg.current_era:
                 required += ACAP_REQUIRED
             for path, human in required:
                 if path == "lyric_sheet":
@@ -278,10 +293,13 @@ def format_report(rep: Report) -> str:
     lines.append("=" * 72)
     lines.append("LEDGER RECONCILIATION")
     lines.append("=" * 72)
-    lines.append(
-        f"bands: {s.get('bands')}   ledger tracks: {s.get('ledger_tracks')}   "
-        f"audio files: {s.get('audio_files')}   with lyric sheet: {s.get('with_lyric_sheet')}"
-    )
+    if s.get("aborted"):
+        lines.append(f"ABORTED: {s['aborted']} — nothing else could be checked.")
+    else:
+        lines.append(
+            f"bands: {s.get('bands')}   ledger tracks: {s.get('ledger_tracks')}   "
+            f"audio files: {s.get('audio_files')}   with lyric sheet: {s.get('with_lyric_sheet')}"
+        )
     lines.append("")
 
     grouped = rep.by_kind()

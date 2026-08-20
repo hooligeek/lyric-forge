@@ -1,42 +1,36 @@
-# Masters and cover art ARE committed, under label/audio and label/artwork.
-# They had no version control and no off-machine copy anywhere else, and the
-# ledger's measurements are meaningless without the files they describe.
-# Only derived audio is excluded.
 
+!.env.example
 # Analyzer cache: deterministic PCM decodes and model output. Reproducible from
-# the committed mp3s, ~1.6 GB, so disposable and never committed.
-.cache/
-
-# Sparks are the rawest human input in the system — the argument you actually
-# had, the thing that annoyed you, the half-formed phrase. Deliberately NOT
-# committed: git is permanent and this repo may go public. The derived brief
-# under label/briefs/ is the part that belongs in the record, and the ledger
-# references the spark by id so provenance survives without the text.
-label/sparks/
-
-# Direct-API settings. Holds model choices, never keys — keys come from the
-# environment. Local anyway, since provider and model are a per-operator choice.
-inference.local.yaml
-
 # Credentials never belong in the tree at all. These patterns are a backstop, not
+# Direct-API settings. Holds model choices, never keys — keys come from the
+# Editors / OS
+# Masters and cover art ARE committed, under label/audio and label/artwork.
+# Only derived audio is excluded.
+# Python
+# Sparks are the rawest human input in the system — the argument you actually
+# They had no version control and no off-machine copy anywhere else, and the
 # a supported location.
+# committed: git is permanent and this repo may go public. The derived brief
+# environment. Local anyway, since provider and model are a per-operator choice.
+# had, the thing that annoyed you, the half-formed phrase. Deliberately NOT
+# ledger's measurements are meaningless without the files they describe.
+# references the spark by id so provenance survives without the text.
+# the committed mp3s, ~1.6 GB, so disposable and never committed.
+# under label/briefs/ is the part that belongs in the record, and the ledger
+*.Zone.Identifier
+*.egg-info/
+*.py[cod]
+.DS_Store
+.cache/
 .env
 .env.*
-!.env.example
-credentials.local.*
-
-*.Zone.Identifier
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
-.pytest_cache/
-
-# Editors / OS
-.DS_Store
 .idea/
+.pytest_cache/
+.venv/
 .vscode/
+__pycache__/
+credentials.local.*
 dist/
+inference.local.yaml
+label/sparks/
+venv/

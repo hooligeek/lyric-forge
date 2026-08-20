@@ -513,15 +513,32 @@ def apply_decisions(cfg: Config, slug: str) -> dict[str, Any]:
             )
             result["kept"] += 1
 
-        track["glitch_log"] = log
-        lc_mod.stamp(
-            track,
-            "adjudicated",
-            by="forge adjudicate --apply",
-            note=f"{len([r for r in rows if r.get('decision') == 'keep'])} of "
-                 f"{len(rows)} measured candidates kept",
+        # Only stamp when the state actually changed.
+        #
+        # The duplication bug was fixed for the glitch log and left here: stamp()
+        # was still called unconditionally, so every re-run appended another
+        # `adjudicated` entry to lifecycle.history. Three runs, three identical
+        # transitions, and the committed data is already several deep. A history
+        # recording events that did not happen is worse than no history — it is
+        # the fabricated-provenance failure in the one structure whose entire job
+        # is provenance.
+        grew = len(log) > len(track.get("glitch_log") or [])
+        already_adjudicated = (
+            ledger_mod.get_nested(track, "lifecycle.stage") == "adjudicated"
         )
-        result["stamped"].append(tslug)
+        track["glitch_log"] = log
+
+        if grew or not already_adjudicated:
+            lc_mod.stamp(
+                track,
+                "adjudicated",
+                by="forge adjudicate --apply",
+                note=f"{len([r for r in rows if r.get('decision') == 'keep'])} of "
+                     f"{len(rows)} candidates kept",
+            )
+            result["stamped"].append(tslug)
+        else:
+            result.setdefault("unchanged", []).append(tslug)
 
     ledger_mod.save_band_tracks(band, tracks)
     return result

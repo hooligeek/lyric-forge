@@ -1159,6 +1159,11 @@ def main(argv: list[str] | None = None) -> int:
     except audio_mod.AudioError as exc:
         print(f"audio error: {exc}", file=sys.stderr)
         return 2
+    except ledger_mod.LedgerError as exc:
+        # A malformed or crafted ledger is an operator-fixable data problem, not
+        # a crash. Every command reads the ledger, so this belongs at the top.
+        print(f"ledger error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

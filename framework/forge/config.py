@@ -63,6 +63,19 @@ class Config:
         return self.raw.get("eras", {})
 
     @property
+    def current_era(self) -> str:
+        """The era new work belongs to. Label-defined: `framework/` hardcoded
+        "acap", which is one label's private name for its own standards epoch."""
+        declared = self.raw.get("current_era")
+        if declared:
+            return str(declared)
+        # Fall back to the last non-legacy era declared, then to a generic name.
+        for name, spec in reversed(list(self.eras.items())):
+            if not (spec or {}).get("exempt_gates"):
+                return name
+        return "current"
+
+    @property
     def excluded_audio(self) -> set[str]:
         return set(self.raw.get("excluded_audio", []) or [])
 
@@ -87,6 +100,10 @@ def load() -> Config:
 
     audio_root = _root(raw.get("audio_root", ""), REPO_ROOT / "label" / "audio")
     artwork_root = _root(raw.get("artwork_root", ""), audio_root / "artwork")
+    # Label-declared harvest banners, so the parser does not carry them.
+    from . import lyrics as _lyrics
+    _lyrics.set_label_furniture((raw.get("import") or {}).get("furniture_markers") or [])
+
     bands = {
         slug: Band(
             slug=slug,

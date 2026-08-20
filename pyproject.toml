@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lyric-forge"
+version = "0.1.0"
+description = "Run a virtual record label as a checkable system"
+requires-python = ">=3.12"
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+# Only `forge analyze` needs these. They are heavy — several hundred MB — and
+# every other command runs on the stdlib plus pyyaml.
+analysis = ["librosa>=0.10", "soundfile>=0.12", "faster-whisper>=1.0", "numpy", "scipy"]
+
+[project.scripts]
+# The documentation described a `forge` command throughout, and there was none:
+# `argparse(prog="forge")` made `--help` corroborate the illusion, so following
+# the getting-started guide literally failed at its first command. Either the
+# docs or the packaging had to change; a real entry point is the honest fix.
+forge = "framework.forge.cli:main"
+
+[tool.setuptools]
+packages = ["framework", "framework.forge", "framework.tools"]
+
+[tool.setuptools.package-data]
+"framework" = ["prompts/*.md", "stances.yaml", "schema/*.json"]
+
+# Python 3.12+ is required and now stated. `forge docs` walks argparse internals
+# (`_actions`, `_choices_actions`) to generate the command reference, and those
+# names are not part of the public API — the minimum version is a real
+# constraint, not a default.
