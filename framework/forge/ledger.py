@@ -25,6 +25,8 @@ TRACK_FIELDS = [
     "band",
     "era",           # pre-standard | acap
     "status",        # needs-backfill | wip | mastered | archived
+    "lifecycle",     # {stage, history[]} — see lifecycle.py
+    "provenance",    # how this song came to exist; spark referenced by id only
     "audio",         # path relative to audio_root
     "audio_sha256",  # pins the file the analysis block describes
     "artwork",       # path relative to artwork_root
@@ -50,6 +52,18 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
         "band": band,
         "era": "pre-standard",
         "status": "needs-backfill",
+        "lifecycle": {"stage": "imported", "history": []},
+        # The spark itself is never stored here — label/sparks/ is gitignored,
+        # since it is the rawest personal input in the system and git is forever.
+        # Only the id travels, so provenance survives without the text.
+        "provenance": {
+            "spark": None,
+            "brief": None,
+            "prompt_template": None,
+            "prompt_version": None,
+            "model": None,
+            "review": None,
+        },
         "audio": audio,
         "artwork": None,
         "duration_s": None,

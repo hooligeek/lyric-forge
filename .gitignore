@@ -7,6 +7,20 @@
 # the committed mp3s, ~1.6 GB, so disposable and never committed.
 .cache/
 
+# Sparks are the rawest human input in the system — the argument you actually
+# had, the thing that annoyed you, the half-formed phrase. Deliberately NOT
+# committed: git is permanent and this repo may go public. The derived brief
+# under label/briefs/ is the part that belongs in the record, and the ledger
+# references the spark by id so provenance survives without the text.
+label/sparks/
+
+# Credentials for direct-API mode. Env vars are preferred; if a file is used it
+# stays local. Never commit a key.
+.env
+.env.*
+!.env.example
+credentials.local.*
+
 *.Zone.Identifier
 
 # Python

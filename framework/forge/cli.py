@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from pathlib import Path
@@ -20,11 +21,75 @@ from . import config as config_mod
 from . import fingerprint as fingerprint_mod
 from . import importer as importer_mod
 from . import ledger as ledger_mod
+from . import lifecycle as lifecycle_mod
 from . import lyrics as lyrics_mod
 from . import mine as mine_mod
+from . import pipeline as pipeline_mod
 from . import reconcile as reconcile_mod
 from . import variety as variety_mod
 from .config import slugify
+
+
+def _emit(args: argparse.Namespace, data: dict, formatter) -> int:
+    """Structured output for agents, formatted output for humans.
+
+    The app is driven from an AI-enabled editor as the primary case, so every
+    reporting command can return JSON. The formatted view stays because a human
+    reading a table is still a real use, but it is the secondary rendering of the
+    same data rather than a separate code path that can drift from it.
+    """
+    if getattr(args, "json", False):
+        print(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    else:
+        print(formatter(data))
+    return 0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    return _emit(args, pipeline_mod.status(cfg), pipeline_mod.format_status)
+
+
+def cmd_next(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    if args.band and args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+    data = pipeline_mod.next_actions(cfg, band=args.band)
+    return _emit(args, data, pipeline_mod.format_next)
+
+
+def cmd_stages(args: argparse.Namespace) -> int:
+    """Document the lifecycle. An agent arriving cold needs the map, not just
+    the current position."""
+    data = {
+        "stages": [
+            {
+                "id": s.id,
+                "order": s.order,
+                "gate": s.gate,
+                "summary": s.summary,
+                "requires": s.requires,
+                "asks": s.asks,
+            }
+            for s in lifecycle_mod.STAGES
+        ]
+    }
+
+    def fmt(d: dict) -> str:
+        out = ["=" * 78, "LIFECYCLE", "=" * 78]
+        for s in d["stages"]:
+            marker = "(entry point)" if s["order"] < 0 else f"{s['order']}."
+            out.append(f"{marker:<14} {s['id']:<13} gate: {s['gate']}")
+            out.append(f"               {s['summary']}")
+            if s["requires"]:
+                out.append(f"               requires: {', '.join(s['requires'])}")
+            if s["asks"]:
+                out.append(f"               asks: {s['asks']}")
+            out.append("")
+        return "\n".join(out)
+
+    return _emit(args, data, fmt)
 
 
 def cmd_bootstrap(args: argparse.Namespace) -> int:
@@ -334,6 +399,22 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="forge", description="lyric-forge label toolchain")
     sub = ap.add_subparsers(dest="command", required=True)
+
+    # The three orientation commands. An agent opening this project cold should
+    # be able to answer "where is everything", "what should I do", and "what is
+    # the process" without reading the source.
+    p = sub.add_parser("status", help="where every track sits in the lifecycle")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("next", help="outstanding decisions, plus a brief proposal")
+    p.add_argument("--band", help="limit to one band")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_next)
+
+    p = sub.add_parser("stages", help="describe the lifecycle and its gates")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_stages)
 
     p = sub.add_parser("bootstrap", help="seed band ledgers from audio on disk")
     p.set_defaults(func=cmd_bootstrap)
