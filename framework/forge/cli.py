@@ -92,6 +92,100 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    from . import context as context_mod
+    from . import prompts as prompts_mod
+    from . import review as review_mod
+
+    cfg = config_mod.load()
+    if args.band and args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+
+    # Lyrics come from an explicit file, or from the track's own sheet.
+    text = ""
+    if args.lyrics:
+        lp = Path(args.lyrics).expanduser()
+        if not lp.exists():
+            print(f"no such lyrics file: {lp}", file=sys.stderr)
+            return 2
+        text = lp.read_text(encoding="utf-8")
+    elif args.track:
+        if not args.band:
+            print("--track needs --band", file=sys.stderr)
+            return 2
+        rows = ledger_mod.load_band_tracks(cfg.bands[args.band])
+        row = next((t for t in rows if t.get("slug") == args.track), None)
+        if row is None:
+            print(f"no track '{args.track}' in {args.band}", file=sys.stderr)
+            return 2
+        rel = row.get("lyric_sheet")
+        if not rel:
+            print(
+                f"{args.track} has no lyric sheet yet. Pass --lyrics with a draft, "
+                f"or generate one first.",
+                file=sys.stderr,
+            )
+            return 2
+        text = (config_mod.REPO_ROOT / rel).read_text(encoding="utf-8")
+    elif not sys.stdin.isatty():
+        text = sys.stdin.read()
+
+    if not text.strip():
+        print(
+            "nothing to review. Provide --lyrics, --track, or pipe on stdin.",
+            file=sys.stderr,
+        )
+        return 2
+
+    rv = review_mod.run(cfg, text, band=args.band, track=args.track)
+
+    if args.prompt:
+        # The judgement half. Mechanical findings are injected so the model does
+        # not re-derive what has already been measured.
+        try:
+            prompt = prompts_mod.load("review-lyrics")
+        except prompts_mod.PromptError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        extra = review_mod.as_prompt_context(rv)
+        if args.context:
+            extra = f"{args.context}\n\n{extra}"
+        ctx = context_mod.build(
+            cfg, band=args.band, track=args.track, lyrics=text, extra_context=extra
+        )
+        try:
+            rendered = prompts_mod.render(prompt, ctx)
+        except prompts_mod.PromptError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        if args.json:
+            print(json.dumps(
+                {"mechanical": rv.to_dict(), "prompt": rendered.to_dict()},
+                indent=2, ensure_ascii=False, default=str,
+            ))
+        else:
+            print(rendered.text)
+        return 0
+
+    if args.record:
+        if not (args.band and args.track):
+            print("--record needs --band and --track", file=sys.stderr)
+            return 2
+        dest = review_mod.record(cfg, args.band, args.track, rv)
+        rel = dest.relative_to(config_mod.REPO_ROOT).as_posix()
+        if not args.json:
+            print(review_mod.format_review(rv))
+            print(f"\nrecorded {rel} — stage: review")
+            return 0
+        data = rv.to_dict()
+        data["recorded"] = rel
+        print(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+        return 0
+
+    return _emit(args, rv.to_dict(), lambda d: review_mod.format_review(rv))
+
+
 def cmd_spark(args: argparse.Namespace) -> int:
     from . import spark as spark_mod
 
@@ -652,6 +746,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("review", help="scan lyrics for issues; mechanical checks computed")
+    p.add_argument("--lyrics", help="path to lyrics (any source, need not be ours)")
+    p.add_argument("--band", help="band slug — enables burned lists, anchors, register")
+    p.add_argument("--track", help="track slug — reads its sheet and its brief")
+    p.add_argument("--context", help="ad-hoc direction for this review")
+    p.add_argument("--prompt", action="store_true", help="emit the judgement prompt")
+    p.add_argument("--record", action="store_true", help="save the review, advance the stage")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("spark", help="capture raw input and open a tracked song")
     p.add_argument("--text", help="the spark, inline")
