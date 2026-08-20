@@ -1,15 +1,27 @@
 #!/usr/bin/env bash
 # Client-side branch protection.
 #
-# GitHub's branch protection and rulesets are both unavailable on a free private
-# repository ("Upgrade to GitHub Pro or make this repository public"), so the
-# server cannot refuse a bad push. This can.
+# Whether the server can back this up depends on the repository:
 #
-# Be clear about what this is: a seatbelt, not a lock. It runs on the machine
-# doing the pushing, it can be skipped with --no-verify, and anyone who clones
-# without running `make hooks` does not have it. It stops accidents, which is the
-# actual risk for a solo operator with 110 MB of irreplaceable masters in a repo
-# whose history has already been rewritten once.
+#   public repo   GitHub branch protection is free. The public template has
+#                 force-push and deletion refused server-side with
+#                 enforce_admins, which cannot be bypassed by --no-verify or by
+#                 the owner. There this hook is belt-and-braces: it catches the
+#                 mistake before the network rather than after.
+#
+#   free private  Branch protection and rulesets are both unavailable
+#                 ("Upgrade to GitHub Pro or make this repository public"), so
+#                 the server will accept anything. On a private label fork this
+#                 hook is the ONLY protection there is.
+#
+# Be clear about what it is in that second case: a seatbelt, not a lock. It runs
+# on the machine doing the pushing, it can be skipped with --no-verify, and anyone
+# who clones without running `make hooks` does not have it. It stops accidents,
+# which is the actual risk for a solo operator with 110 MB of irreplaceable
+# masters in a repo whose history has already been rewritten once.
+#
+# One thing a server-side rule cannot do and this can: refuse a push from a dirty
+# tree, and run the gates. GitHub only sees commits.
 #
 # Install:  git config core.hooksPath .githooks
 #
@@ -21,7 +33,9 @@
 
 set -uo pipefail
 
-PROTECTED="main vector-soul"
+# Both repositories in the split use `main` as their trunk: the public template,
+# and each private label fork. Add any other long-lived branch you care about.
+PROTECTED="main"
 ZERO="0000000000000000000000000000000000000000"
 FAIL=0
 
