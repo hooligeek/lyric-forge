@@ -92,6 +92,18 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_docs(args: argparse.Namespace) -> int:
+    from . import docs as docs_mod
+
+    cfg = config_mod.load()
+    root = Path(args.out).expanduser() if args.out else docs_mod.DOCS
+    ds = (
+        docs_mod.build_framework() if args.kind == "framework"
+        else docs_mod.build_catalog(cfg, root)
+    )
+    return _emit(args, ds.write(root), docs_mod.format_result)
+
+
 def cmd_bundle(args: argparse.Namespace) -> int:
     from . import bundle as bundle_mod
 
@@ -964,6 +976,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("docs", help="generate documentation")
+    p.add_argument("kind", choices=["framework", "catalog"])
+    p.add_argument("--out", help="destination (e.g. a wiki clone)")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_docs)
 
     p = sub.add_parser("bundle", help="compile a NotebookLM bundle")
     p.add_argument("kind", choices=["fresh", "export"])

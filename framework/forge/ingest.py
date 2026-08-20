@@ -152,9 +152,11 @@ def ingest(
     superseded = None
     replaced = False
 
+    unchanged = False
     if dest.exists():
         if fp_mod.sha256_file(dest) == new_hash:
             warnings.append("identical file already ingested; nothing changed on disk")
+            unchanged = True
         elif not replace:
             raise IngestError(
                 f"{dest.relative_to(config_mod.REPO_ROOT)} already exists with "
@@ -201,10 +203,14 @@ def ingest(
     if track.get("status") in (None, "needs-backfill"):
         track["status"] = "wip"
 
-    note = f"{probe.duration_s:.0f}s, {new_hash[:12]}"
-    if replaced:
-        note += "; replaced previous master, prior analysis archived"
-    lc_mod.stamp(track, "rendered", by="forge ingest-audio", note=note)
+    # Re-ingesting the identical file must not stamp the stage. Doing so walked
+    # an already-adjudicated track backwards to `rendered` — the no-op rewrote
+    # history it had no business touching.
+    if not unchanged:
+        note = f"{probe.duration_s:.0f}s, {new_hash[:12]}"
+        if replaced:
+            note += "; replaced previous master, prior analysis archived"
+        lc_mod.stamp(track, "rendered", by="forge ingest-audio", note=note)
     ledger_mod.save_band_tracks(cfg.bands[band], rows)
 
     return IngestResult(
