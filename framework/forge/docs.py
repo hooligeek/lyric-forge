@@ -774,9 +774,22 @@ def _catalog_html(cfg: Config, out_root: Path) -> str:
         ".meta{color:#999;font-size:.85rem;margin:.25rem 0}",
         "audio{width:100%;margin-top:.6rem}",
         "a{color:#8bd}",
+        # The banner is a printed artefact on a bone-white ground and this page is
+        # near-black, so it reads as a lit panel rather than a header bleeding into
+        # the background. Left deliberately full-width and unfaded.
+        ".hero{display:block;width:100%;height:auto;border-radius:6px;margin:0 0 1.5rem}",
         "</style>",
-        f"<h1>{html.escape(label.get('name','Catalogue'))}</h1>",
     ]
+    # Same image as the markdown index: the player is the catalogue's playable
+    # build, not a second catalogue, so it should not have a second identity. Same
+    # abstain rule too — no banner declared, or declared and absent, means no tag.
+    hero = cfg.catalog_hero
+    if hero:
+        parts.append(
+            f'<img class=hero src="{asset_link(out_root, "catalog", hero)}" '
+            f'alt="{html.escape(label.get("name", ""))}">'
+        )
+    parts.append(f"<h1>{html.escape(label.get('name','Catalogue'))}</h1>")
     if label.get("axiom"):
         parts.append(f"<p><em>{html.escape(label['axiom'])}</em></p>")
     parts.append(
