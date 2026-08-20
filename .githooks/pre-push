@@ -29,7 +29,8 @@
 #   1. no force-push to a protected branch      (history loss)
 #   2. no deletion of a protected branch        (branch loss)
 #   3. no push from a dirty tree                (unreproducible remote state)
-#   4. gates must pass                          (broken state published)
+#   4. unit tests must pass                     (broken code published)
+#   5. gates must pass                          (broken state published)
 
 set -uo pipefail
 
@@ -80,15 +81,6 @@ if [ -n "$(git status --porcelain)" ]; then
     say "Commit or stash first, so the pushed state matches the tree that made it."
 fi
 
-# --- gates ---------------------------------------------------------------
-# Same checks CI runs, before the network rather than after. Skipped if the
-# toolchain is not installed, because a missing venv is not a reason to block a
-# docs typo — CI will still catch it.
-FORGE=""
-if [ -x ./.venv/bin/forge ]; then FORGE="./.venv/bin/forge"
-elif command -v forge >/dev/null 2>&1; then FORGE="forge"
-fi
-
 # --- unit tests -----------------------------------------------------------
 # Cheapest check in the project: no label, no audio, no model, under a second. It
 # runs before the slower gates so a broken parser fails fast.
@@ -104,6 +96,15 @@ if [ -n "$PYTEST" ]; then
     fi
 else
     say "note: pytest not installed here, skipping the unit tests."
+fi
+
+# --- gates ---------------------------------------------------------------
+# Same checks CI runs, before the network rather than after. Skipped if the
+# toolchain is not installed, because a missing venv is not a reason to block a
+# docs typo — CI will still catch it.
+FORGE=""
+if [ -x ./.venv/bin/forge ]; then FORGE="./.venv/bin/forge"
+elif command -v forge >/dev/null 2>&1; then FORGE="forge"
 fi
 
 if [ -n "$FORGE" ]; then
