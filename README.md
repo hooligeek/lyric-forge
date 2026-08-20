@@ -67,10 +67,61 @@ python3 -m framework.forge probe        # audio facts table
 python3 -m framework.forge bootstrap    # seed ledgers from audio on disk
 python3 -m framework.forge reconcile    # audio <-> ledger <-> lyric sheets
 python3 -m framework.forge decode --band warhead --kind both
+python3 -m framework.forge import-lyrics --band warhead --source context_harvest
+python3 -m framework.forge mine --band silicon-kings --write
 ```
 
 `bootstrap` is idempotent: it only adds entries for audio it has not seen, so
-hand-enrichment survives re-runs.
+hand-enrichment survives re-runs. `import-lyrics` defaults to a dry run — pass
+`--write` once the parse looks right.
+
+## Importing from notebook harvests
+
+Harvest documents arrive in whatever shape a notebook produced: `#### TRACK 01:
+TITLE`, `Track 5: Title`, escaped `\#\#\# 1\. Title`, or a ruler-delimited dump
+with every section flattened onto one line. Rather than a parser per dialect,
+the importer segments on the invariant that holds across all of them: a song is
+a run of bracketed section cues, preceded by its title.
+
+Two things that dialect-specific parsers get wrong and this one handles:
+
+- **Section cues do not lead with their keyword.** The real material says
+  `[Dense Verse 1 | ...]`, `[Grievance-Driven Chorus | ...]`,
+  `[Meltdown Bridge | ...]`. Anchoring the keyword to the start of the bracket
+  silently drops most of a song — and the loss is invisible, because what
+  survives still parses.
+- **Songs bleed into each other.** Most sheets end on `[Outro]`, not `[End]`, so
+  the next track's seal, metadata block, and sonic blueprint land inside the
+  previous song's outro — and then show up in repetition mining as fake shared
+  phrases like *"bpm g major suno style prompt roots reggae"*. Markdown headings
+  and horizontal rules therefore close the current section and suspend capture
+  until the next cue.
+
+Matching parsed songs to ledger entries is deliberately fuzzy in one direction
+only. `Systemic Obsolescence One.mp3` is
+`Systemic Obsolescence (Pt. 1: The Infrastructure Grievance)` — a filename
+convention, matched at 0.95. But `Local Sentinel` is not `Under My Own Metal`,
+and the importer reports that as unmatched rather than guessing.
+
+## Repetition mining
+
+`forge mine` finds phrases a band has already spent. The premise is that
+"functional equilibrium" is not running out of *words* but out of *structural
+moves* — a model handed a bag of vocabulary reuses the same handful forever,
+because those scan and rhyme easiest.
+
+Repetition *within* a song is a chorus and is wanted. Repetition *across* songs
+is the failure mode, so everything counts distinct songs rather than raw
+occurrences. Alongside phrases it reports **shared section openings**, which
+catch syntactic ruts that vocabulary checks miss entirely — three Silicon Kings
+bridges opening on *"A deep lack of ..."* is a tic, not a shared word.
+
+Output is triage, not verdict. Everything lands in `candidates` in the band's
+`retired.yaml`, and the operator promotes each entry to either `canonical_hooks`
+(deliberate — brand slogans, recurring motifs) or `burned` (spent, never again).
+Only a human knows which is which: *"the machine is a vessel, but the man is the
+soul"* recurring across two songs is the label axiom working as intended, while
+*"get out of the way"* closing three of six songs is a rut.
 
 ## Why the ledger is data and not prose
 

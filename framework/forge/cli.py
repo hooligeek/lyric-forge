@@ -11,9 +11,13 @@ from __future__ import annotations
 import argparse
 import sys
 
+from pathlib import Path
+
 from . import audio as audio_mod
 from . import config as config_mod
+from . import importer as importer_mod
 from . import ledger as ledger_mod
+from . import mine as mine_mod
 from . import reconcile as reconcile_mod
 from .config import slugify
 
@@ -118,6 +122,52 @@ def cmd_decode(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_lyrics(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    if args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+    band = cfg.bands[args.band]
+
+    source = Path(args.source).expanduser()
+    if not source.is_absolute():
+        # Convenience: a bare path is resolved against the band's audio directory,
+        # which is where harvest documents get dropped alongside the mp3s.
+        candidate = cfg.band_audio_dir(args.band) / source
+        source = candidate if candidate.exists() else source
+    if not source.exists():
+        print(f"no such source: {source}", file=sys.stderr)
+        return 2
+
+    matches, unmatched, written = importer_mod.import_file(
+        cfg, band, source, dry_run=not args.write
+    )
+    print(
+        importer_mod.format_result(
+            band, source, matches, unmatched, written, dry_run=not args.write
+        )
+    )
+    return 0
+
+
+def cmd_mine(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    targets = [args.band] if args.band else list(cfg.bands)
+    for slug in targets:
+        if slug not in cfg.bands:
+            print(f"unknown band: {slug} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+            return 2
+    for slug in targets:
+        result = mine_mod.mine_band(cfg.bands[slug])
+        print(mine_mod.format_result(result, limit=args.limit))
+        if args.write:
+            dest = mine_mod.write_retired(cfg.bands[slug], result)
+            rel = dest.relative_to(config_mod.REPO_ROOT).as_posix()
+            print(f"\nwrote {rel}")
+        print()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="forge", description="lyric-forge label toolchain")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -132,6 +182,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("probe", help="print an audio facts table")
     p.set_defaults(func=cmd_probe)
+
+    p = sub.add_parser("mine", help="find phrases the band has already spent")
+    p.add_argument("--band", help="band slug (default: all)")
+    p.add_argument("--limit", type=int, default=25, help="max rows per section")
+    p.add_argument("--write", action="store_true", help="write retired.yaml triage file")
+    p.set_defaults(func=cmd_mine)
+
+    p = sub.add_parser("import-lyrics", help="import lyric sheets from a harvest document")
+    p.add_argument("--band", required=True, help="band slug")
+    p.add_argument("--source", required=True, help="harvest document path")
+    p.add_argument("--write", action="store_true", help="write sheets (default: dry run)")
+    p.set_defaults(func=cmd_import_lyrics)
 
     p = sub.add_parser("decode", help="populate the canonical PCM cache")
     p.add_argument("--kind", choices=["dsp", "asr", "both"], default="dsp")
