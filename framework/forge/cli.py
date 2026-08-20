@@ -92,6 +92,64 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_adjudicate(args: argparse.Namespace) -> int:
+    from . import adjudicate as adj_mod
+
+    cfg = config_mod.load()
+    targets = [args.band] if args.band else list(cfg.bands)
+    for slug in targets:
+        if slug not in cfg.bands:
+            print(f"unknown band: {slug} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+            return 2
+
+    if args.apply:
+        results = []
+        for slug in targets:
+            try:
+                results.append(adj_mod.apply_decisions(cfg, slug))
+            except FileNotFoundError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
+        data = {"applied": results}
+
+        def fmt(d: dict) -> str:
+            out = ["=" * 78, "ADJUDICATION APPLIED", "=" * 78]
+            for r in d["applied"]:
+                out.append(
+                    f"{r['band']:<18} kept {r['kept']}, discarded {r['discarded']}, "
+                    f"pending {r['pending']}, stamped {len(r['stamped'])}"
+                )
+                for ref in r["refused"]:
+                    out.append(f"   refused {ref['track']}: {ref['reason'][:90]}")
+            if any(r["pending"] for r in d["applied"]):
+                out.append("")
+                out.append(
+                    "Tracks with pending candidates were left unstamped. Partial "
+                    "adjudication is not adjudication — they stay visible in status."
+                )
+            return "\n".join(out)
+
+        return _emit(args, data, fmt)
+
+    docs = []
+    for slug in targets:
+        doc = adj_mod.build_decisions(cfg, slug)
+        if args.write:
+            dest = adj_mod.write_decisions(cfg, slug, doc)
+            doc["_written"] = dest.relative_to(config_mod.REPO_ROOT).as_posix()
+        docs.append(doc)
+
+    if args.json:
+        print(json.dumps({"bands": docs}, indent=2, ensure_ascii=False, default=str))
+        return 0
+    for doc in docs:
+        print(adj_mod.format_decisions(doc))
+        if doc.get("_written"):
+            print(f"\nwrote {doc['_written']}")
+        print()
+    return 0
+
+
 def cmd_prompt(args: argparse.Namespace) -> int:
     from . import context as context_mod
     from . import prompts as prompts_mod
@@ -170,6 +228,7 @@ def cmd_prompt(args: argparse.Namespace) -> int:
     ctx = context_mod.build(
         cfg,
         band=args.band,
+        track=args.track,
         suite=args.suite,
         stance=args.stance,
         bpm=args.bpm,
@@ -515,10 +574,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
 
+    p = sub.add_parser("adjudicate", help="judge measured glitch candidates")
+    p.add_argument("--band", help="band slug (default: all)")
+    p.add_argument("--write", action="store_true", help="write/refresh the decision file")
+    p.add_argument("--apply", action="store_true", help="write kept candidates to glitch logs")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_adjudicate)
+
     p = sub.add_parser("prompt", help="the prompt library: list, show, lint, render")
     p.add_argument("action", choices=["list", "show", "lint", "render"])
     p.add_argument("--id", help="prompt id, for show/render")
     p.add_argument("--band", help="band slug — fills band, dossier, suite, register slots")
+    p.add_argument("--track", help="track slug — fills candidates, verdict (for adjudicate-glitch)")
     p.add_argument("--suite", help="override the proposed suite")
     p.add_argument("--stance", help="override the proposed stance")
     p.add_argument("--bpm", type=int, help="override the proposed tempo")

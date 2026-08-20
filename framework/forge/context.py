@@ -161,10 +161,55 @@ def _stance_slots(stance_id: str | None) -> dict[str, Any]:
     return {"stance_id": stance_id, "stance_name": stance_id}
 
 
+def track_slots(cfg: Config, band: str, track_slug: str) -> dict[str, Any]:
+    """Slots for a specific track: title, transcript verdict, and the measured
+    candidates awaiting judgement.
+
+    Without these the adjudicate-glitch prompt cannot render, which is the whole
+    reason it exists — an agent reasoning about how to name a failure needs the
+    evidence, not a description of the evidence.
+    """
+    from . import adjudicate as adj_mod
+
+    tracks = ledger_mod.load_band_tracks(cfg.bands[band])
+    track = next((t for t in tracks if t.get("slug") == track_slug), None)
+    if track is None:
+        return {}
+
+    analysis = track.get("analysis") or {}
+    verdict = ((analysis.get("asr") or {}).get("verdict")) or ""
+
+    doc = adj_mod.build_decisions(cfg, band)
+    entry = (doc.get("tracks") or {}).get(track_slug) or {}
+    rows = [r for r in (entry.get("candidates") or []) if not r.get("auto")]
+
+    rendered: list[str] = []
+    for i, r in enumerate(rows, 1):
+        bits = [f"{i}. [{r.get('timecode')}] {r.get('type')}"]
+        if r.get("section"):
+            bits.append(f"section: {r['section']}")
+        if r.get("expected"):
+            bits.append(f'expected: "{r["expected"]}"')
+        if r.get("heard"):
+            bits.append(f'heard: "{r["heard"]}"')
+        if r.get("also_at"):
+            bits.append(f"recurs at: {', '.join(str(t) for t in r['also_at'])}")
+        if r.get("confidence") is not None:
+            bits.append(f"confidence: {r['confidence']}")
+        rendered.append("\n   ".join(bits))
+
+    return {
+        "track_title": track.get("title", track_slug),
+        "asr_verdict": verdict,
+        "candidates": "\n\n".join(rendered),
+    }
+
+
 def build(
     cfg: Config,
     *,
     band: str | None = None,
+    track: str | None = None,
     suite: str | None = None,
     stance: str | None = None,
     bpm: int | None = None,
@@ -234,4 +279,6 @@ def build(
     )
     ctx.update(_suite_slots(spec, suite))
     ctx.update(_stance_slots(stance))
+    if track:
+        ctx.update(track_slots(cfg, band, track))
     return ctx
