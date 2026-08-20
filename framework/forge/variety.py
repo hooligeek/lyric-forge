@@ -47,7 +47,7 @@ class BandVariety:
 
 
 def _load_stance_roster() -> dict:
-    path = config_mod.LABEL_DIR / "stances.yaml"
+    path = config_mod.REPO_ROOT / "framework" / "stances.yaml"
     if not path.exists():
         return {}
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}

@@ -54,7 +54,7 @@ def band_spec(cfg: Config, slug: str) -> dict:
 
 
 def stance_roster() -> dict:
-    return yaml.safe_load(_read(config_mod.LABEL_DIR / "stances.yaml") or "{}") or {}
+    return yaml.safe_load(_read(config_mod.REPO_ROOT / "framework" / "stances.yaml") or "{}") or {}
 
 
 def label_spec() -> dict:

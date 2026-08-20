@@ -92,6 +92,28 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_bundle(args: argparse.Namespace) -> int:
+    from . import bundle as bundle_mod
+
+    cfg = config_mod.load()
+    if args.kind == "fresh":
+        b = bundle_mod.build_fresh()
+        root = Path(args.out).expanduser() if args.out else bundle_mod.FRESH_DIR
+    else:
+        bands = [args.band] if args.band else None
+        if args.band and args.band not in cfg.bands:
+            print(f"unknown band: {args.band}", file=sys.stderr)
+            return 2
+        b = bundle_mod.build_export(cfg, bands)
+        root = (
+            Path(args.out).expanduser() if args.out
+            else bundle_mod.DIST / cfg.raw.get("label", {}).get("id", "label").lower()
+        )
+
+    result = b.write(root)
+    return _emit(args, result, bundle_mod.format_result)
+
+
 def cmd_infer(args: argparse.Namespace) -> int:
     from . import context as context_mod
     from . import inference as inf_mod
@@ -942,6 +964,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("bundle", help="compile a NotebookLM bundle")
+    p.add_argument("kind", choices=["fresh", "export"])
+    p.add_argument("--band", help="export: limit to one band")
+    p.add_argument("--out", help="destination directory")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_bundle)
 
     p = sub.add_parser("infer", help="run a prompt: via the surrounding agent, or an API")
     p.add_argument("--id", required=True, help="prompt id")

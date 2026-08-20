@@ -1,0 +1,116 @@
+---
+# THE STANCE ROSTER — a reusable taxonomy, not one label's content.
+#
+# Framework-level on purpose: these eleven positions are generic, and a fresh
+# project needs them before it has any label content at all. Per-label usage
+# counts are NOT stored here — `forge variety` computes them from the ledger,
+# because a stored count goes stale the moment a track is written.
+#
+# Why this exists:
+#
+# A lyrical matrix constrains *vocabulary*. It does not constrain *syntax*, and
+# syntax is where the sameness actually lives. Screen-Lit Panic has four thematic
+# suites and six songs, and every one of those six songs is the same speech act:
+# second-person accusation. "You call it lazy." "You're terrified." "You never
+# saw the labor." The topic rotates; the posture never does. Silicon Kings opens
+# three separate bridges with "A deep lack of ___". That is not a vocabulary
+# problem and no lexicon check will ever catch it.
+#
+# So: every new song draws a SUITE (what it is about) and a STANCE (how it is
+# spoken). Those are independent axes. Four suites x eleven stances is 44 distinct
+# premises per band instead of 4, and the stance is what changes the sentences.
+#
+# Rule: a stance may not repeat until at least two other stances have been used
+# by that band. Enforced by `forge variety`.
+
+stances:
+  - id: accusation
+    name: Accusation
+    description: >
+      Second person, adversarial. The listener is the opponent and is told what
+      they are. The roster's default and by far its most overused mode.
+    marker: "you + present-tense indictment"
+    example: "Calling it lazy 'cause you lost the fight"
+    caution: >
+      Nine of the twenty-one existing tracks are this. Treat it as spent until
+      the distribution evens out.
+
+  - id: exhortation
+    name: Exhortation
+    description: >
+      Second person, allied. The listener is a comrade being urged, not an enemy
+      being indicted. Same grammatical person as accusation, opposite temperature.
+    marker: "imperative + warmth"
+    example: "So artists hold your ground, don't turn away in dread"
+
+  - id: testimony
+    name: Testimony
+    description: >
+      First person declaring outward what the speaker is. Not admitting, not
+      apologising — stating. The only stance permitted to voice the machine.
+    marker: "I am / I do, addressed to a listener"
+    example: "I am just a helper in the architecture grand"
+
+  - id: confession
+    name: Confession
+    description: >
+      First person admitting cost, weakness, complicity, or defeat. The stance
+      the roster most conspicuously lacks, and where every "cannot admit" line in
+      the substrate belongs.
+    marker: "I + the thing it costs"
+    example: "While I'm deciding if I should sell my boat"
+
+  - id: narrative
+    name: Narrative
+    description: >
+      Third person. A specific character does specific things in a specific
+      place. No addressee at all. Forces scene-writing instead of position-taking.
+    marker: "he/she/they + a scene"
+    example: "I'm scrolling through the feed, a barista taking aim"
+
+  - id: reportage
+    name: Reportage
+    description: >
+      Flat facts, stacked, no opinion offered and no one addressed. The argument
+      is made entirely by selection. Extremely hard and extremely effective.
+    marker: "declarative sentences, no second person, no adjectives of judgement"
+
+  - id: dialogue
+    name: Dialogue
+    description: >
+      Quoted or overheard speech, ideally the opponent's own words verbatim. The
+      Live Fire comment harvest is a corpus purpose-built for this and has been
+      used for exactly one song.
+    marker: "quotation marks doing the structural work"
+
+  - id: procedure
+    name: Procedure
+    description: >
+      Instructions. Steps in order. A manual, a checklist, a sequence of
+      commands. Cold, sequential, and unnervingly effective at conveying strain
+      because it never mentions the strain.
+    marker: "numbered or sequential imperatives, no emotional vocabulary"
+    example: "Throw the breaker. Seal the perimeter. Compile."
+
+  - id: inventory
+    name: Inventory
+    description: >
+      Enumeration. A list of objects, costs, errors, parts, or names. Accretion
+      does the emotional work; the list is never commented on.
+    marker: "nouns in series"
+
+  - id: retrospective
+    name: Retrospective
+    description: >
+      Spoken from after it is over, looking back. Reframes present urgency as
+      something already survived or already lost.
+    marker: "past tense + a vantage point later than the events"
+
+  - id: apostrophe
+    name: Apostrophe
+    description: >
+      Direct address to a thing that cannot answer — the GPU, the case fan, the
+      reed, the router, the dead drive. Turns the hardware from scenery into a
+      character.
+    marker: "second person aimed at an object"
+
