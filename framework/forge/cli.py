@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from . import analyze as analyze_mod
+from . import artwork_cmd as artwork_cmd_mod
 from . import audio as audio_mod
 from . import config as config_mod
 from . import importer as importer_mod
@@ -148,6 +149,16 @@ def cmd_import_lyrics(args: argparse.Namespace) -> int:
     print(
         importer_mod.format_result(
             band, source, matches, unmatched, written, dry_run=not args.write
+        )
+    )
+    return 0
+
+
+def cmd_artwork(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    print(
+        artwork_cmd_mod.run(
+            cfg, write=args.write, with_palette=not args.no_palette
         )
     )
     return 0
@@ -347,6 +358,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("variety", help="stance/suite/tempo distribution across the catalogue")
     p.add_argument("--strict", action="store_true", help="exit 1 on any warning")
     p.set_defaults(func=cmd_variety)
+
+    p = sub.add_parser("artwork", help="link cover art and report duplicates/palette")
+    p.add_argument("--write", action="store_true", help="write artwork paths to the ledger")
+    p.add_argument("--no-palette", action="store_true", help="skip palette extraction")
+    p.set_defaults(func=cmd_artwork)
 
     p = sub.add_parser("relink", help="wire hand-authored lyric sheets into the ledger")
     p.set_defaults(func=cmd_relink)

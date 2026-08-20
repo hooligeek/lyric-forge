@@ -43,6 +43,7 @@ class Band:
 class Config:
     raw: dict
     audio_root: Path
+    artwork_root: Path
     bands: dict[str, Band]
 
     @property
@@ -67,11 +68,16 @@ def load() -> Config:
     raw = yaml.safe_load(LABEL_FILE.read_text(encoding="utf-8"))
 
     audio_root = Path(raw["audio_root"]).expanduser()
+    artwork_root = Path(
+        raw.get("artwork_root") or (audio_root / "artwork")
+    ).expanduser()
     bands = {
         slug: Band(slug=slug, audio_dir=spec["audio_dir"], prefix=spec["prefix"])
         for slug, spec in raw.get("bands", {}).items()
     }
-    return Config(raw=raw, audio_root=audio_root, bands=bands)
+    return Config(
+        raw=raw, audio_root=audio_root, artwork_root=artwork_root, bands=bands
+    )
 
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")

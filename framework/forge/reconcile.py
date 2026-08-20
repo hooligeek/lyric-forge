@@ -136,6 +136,14 @@ def run(cfg: Config, probe_audio: bool = True) -> Report:
                         f"ledger says {declared}s, audio is {actual:.0f}s",
                     )
 
+            art = t.get("artwork")
+            if not art:
+                rep.add("NO_ARTWORK", slug, subject, "no cover art linked")
+            elif not (cfg.artwork_root / art).exists():
+                rep.add(
+                    "BROKEN_ARTWORK_REF", slug, subject, f"artwork points at missing {art}"
+                )
+
             sheet = t.get("lyric_sheet")
             sheet_ok = False
             if sheet:

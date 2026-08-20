@@ -292,6 +292,50 @@ Transcript **coverage** discriminates:
 Coverage only *proxies* coherence, so results near the threshold carry a
 `-borderline` suffix and need an ear rather than a number.
 
+## Cover art
+
+```bash
+python3 -m framework.forge artwork --write
+```
+
+Art is the third per-track asset alongside audio and lyrics, matched to the
+ledger by slugified filename (filenames in the wild carry trailing spaces, so
+they are stripped first). Decoding goes through ffmpeg rather than Pillow —
+already a hard requirement for the audio pipeline, and both checks below are
+one-line filter graphs.
+
+### Two hashes, because one asks the wrong question
+
+These covers are template-built: a fixed band-name plate, a shared background
+treatment, a fixed border, a title stamp in the same corner. A whole-frame
+perceptual hash is dominated by that furniture. It reported Screen-Lit Panic's
+*MINE!* and *Take the L* as the same picture at distance 8 — when one is a pair
+of hands clutching pearls and the other is a reel-to-reel deck. False positive
+for duplication; true positive for a shared template, which is the art direction
+working rather than a defect.
+
+So there are two measurements:
+
+- **full frame** → template consistency, reported as a separate, non-alarming
+  category.
+- **centre crop** (excluding the plate and the stamp) → whether the *subject art*
+  actually repeats. This is the one that matters.
+
+Validated both ways against the catalogue: the retuned check separates the
+Screen-Lit Panic template pairs correctly, and catches that three of four Roots
+Futuria covers are one beach photograph re-titled — identical sunset, guitar,
+angle and leaf, at centre distances of 1, 2 and 3.
+
+Exact `sha256` matches are reported distinctly, since a byte-identical file is a
+different problem from a re-render.
+
+### Palette
+
+Coarse quantisation to dominant colours with shares — enough to check a declared
+palette, not enough to argue about. It found that Screen-Lit Panic's declared
+"blood-red splatters" appear nowhere in its actual art (measured white,
+near-black, green) and that Warhead's declared amber/orange is really a dark red.
+
 ## The variety gate
 
 ```bash

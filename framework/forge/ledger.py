@@ -26,6 +26,7 @@ TRACK_FIELDS = [
     "era",           # pre-standard | acap
     "status",        # needs-backfill | wip | mastered | archived
     "audio",         # path relative to audio_root
+    "artwork",       # path relative to artwork_root
     "duration_s",
     "suno",          # {style_prompt, declared_bpm, declared_key}
     "matrix",        # {suite, stance}
@@ -48,6 +49,7 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
         "era": "pre-standard",
         "status": "needs-backfill",
         "audio": audio,
+        "artwork": None,
         "duration_s": None,
         "suno": {"style_prompt": None, "declared_bpm": None, "declared_key": None},
         "matrix": {"suite": None, "stance": None},
