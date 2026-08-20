@@ -671,7 +671,7 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
     return "\n".join(L)
 
 
-def _catalog_index(cfg: Config) -> str:
+def _catalog_index(cfg: Config, out_root: Path) -> str:
     label = context_mod.label_spec()
     lblock = label.get("label") or {}
     results, summary = variety_mod.run(cfg)
@@ -684,7 +684,18 @@ def _catalog_index(cfg: Config) -> str:
         t.get("duration_s") or 0 for v in all_tracks.values() for t in v
     )
 
-    L = [f"# {lblock.get('name','Catalogue')}", ""]
+    L: list[str] = []
+    # Banner above the heading, which is where a reader's eye starts. Declared in
+    # label.yaml so `framework/` stays generic — a label's own artwork has no
+    # business being a path inside the toolchain.
+    hero = cfg.catalog_hero
+    if hero:
+        L += [
+            f'<img src="{asset_link(out_root, "catalog", hero)}" '
+            f'alt="{lblock.get("name", "")}" width="100%">',
+            "",
+        ]
+    L += [f"# {lblock.get('name','Catalogue')}", ""]
     if lblock.get("tagline"):
         L += [f"*{lblock['tagline']}*", ""]
     if lblock.get("axiom"):
@@ -809,7 +820,7 @@ def _catalog_html(cfg: Config, out_root: Path) -> str:
 
 def build_catalog(cfg: Config, out_root: Path) -> DocSet:
     ds = DocSet(kind="catalog")
-    ds.files.append(DocFile("catalog/README.md", _catalog_index(cfg)))
+    ds.files.append(DocFile("catalog/README.md", _catalog_index(cfg, out_root)))
     for slug in cfg.bands:
         ds.files.append(DocFile(f"catalog/{slug}.md", _catalog_band(cfg, slug, out_root)))
     ds.files.append(DocFile("catalog/index.html", _catalog_html(cfg, out_root)))

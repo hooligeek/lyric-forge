@@ -24,6 +24,15 @@ label:
 audio_root: label/audio
 artwork_root: label/artwork
 
+# Optional banner across the top of the generated catalogue index. Repo-relative.
+# Leave it unset and the catalogue simply opens on its heading; point it at a file
+# that is not there and it does the same, rather than emitting a broken image.
+#
+# The catalogue index is generated, so this is the way to give it a banner — a hand
+# edit to docs/catalog/README.md is overwritten on the next `forge docs catalog`
+# and fails the freshness gate in between.
+# catalog_hero: label/artwork/label/hero.jpeg
+
 # Phrases that are SUPPOSED to cross act boundaries — your axiom, a slogan.
 # Everything else shared between two acts is reported as convergence.
 canonical_phrases: []

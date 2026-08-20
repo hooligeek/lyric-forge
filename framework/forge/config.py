@@ -79,6 +79,22 @@ class Config:
     def excluded_audio(self) -> set[str]:
         return set(self.raw.get("excluded_audio", []) or [])
 
+    @property
+    def catalog_hero(self) -> Path | None:
+        """Optional banner image for the generated catalogue index.
+
+        Returns None when unset *or* when the declared file is not on disk. A
+        fork without one gets no banner, which is the right outcome: emitting an
+        `<img>` for a file that is not there would put a broken image at the top
+        of the catalogue and nothing would report it. Abstain rather than claim.
+        """
+        rel = str(self.raw.get("catalog_hero") or "").strip()
+        if not rel:
+            return None
+        p = Path(rel).expanduser()
+        p = p if p.is_absolute() else (REPO_ROOT / p)
+        return p if p.is_file() else None
+
     def band_audio_dir(self, slug: str) -> Path:
         return self.audio_root / self.bands[slug].audio_dir
 
