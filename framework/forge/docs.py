@@ -551,7 +551,16 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
     spec = context_mod.band_spec(cfg, slug)
     bblock = spec.get("band") or {}
     sonic = spec.get("sonic") or {}
-    tracks = ledger_mod.load_band_tracks(cfg.bands[slug])
+    all_rows = ledger_mod.load_band_tracks(cfg.bands[slug])
+
+    # Releases and work in progress are counted separately everywhere below. A
+    # brief has no title, no audio and no artwork, so rendering it beside finished
+    # songs made the page look broken and inflated every figure on it.
+    tracks: list[dict] = []
+    in_progress: list[dict] = []
+    for t in all_rows:
+        target = tracks if lc_mod.is_released(lc_mod.assess(t).stage) else in_progress
+        target.append(t)
 
     album = None
     album_dir = cfg.artwork_root / "albums" / slug
@@ -589,7 +598,9 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
     )
     measured = [t["measured_bpm"] for t in tracks if t.get("measured_bpm")]
     L += ["## By the numbers", "", "| | |", "| --- | --- |"]
-    L.append(f"| Tracks | {len(tracks)} |")
+    L.append(f"| Releases | {len(tracks)} |")
+    if in_progress:
+        L.append(f"| In progress | {len(in_progress)} |")
     if measured:
         L.append(f"| Measured tempo range | {min(measured):.0f}–{max(measured):.0f} BPM |")
     reg = spec.get("register") or {}
@@ -668,6 +679,33 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
             L += ["", "</details>", ""]
         L.append("---")
         L.append("")
+
+    # --- work in progress ---------------------------------------------------
+    # Listed rather than hidden. Omitting it would let the catalogue imply the
+    # ledger holds nothing else, which is the same kind of false completeness the
+    # inflated count was. Kept separate and plainly labelled, with what each one is
+    # actually waiting on, so it reads as a song being written and not as a gap.
+    if in_progress:
+        L += ["## In progress", "",
+              "Not releases. These are in the pipeline and are excluded from every "
+              "figure above.", ""]
+        for t in in_progress:
+            a = lc_mod.assess(t)
+            bits = [f"`{t.get('id')}`", f"stage `{a.stage}`"]
+            suite = ledger_mod.get_nested(t, "matrix.suite")
+            stance = ledger_mod.get_nested(t, "matrix.stance")
+            if suite:
+                bits.append(f"suite {suite}")
+            if stance:
+                bits.append(f"stance {stance}")
+            L.append(f"### {t.get('title')}")
+            L += ["", " · ".join(bits), ""]
+            if a.next_stage:
+                who = "a human" if a.blocked_on_human else "the tool"
+                L += [f"Next: **{a.next_stage}** — {who} advances it."
+                      + (f" Waiting on `{'`, `'.join(a.missing)}`." if a.missing else ""),
+                      ""]
+            L += ["---", ""]
     return "\n".join(L)
 
 
@@ -676,10 +714,19 @@ def _catalog_index(cfg: Config, out_root: Path) -> str:
     lblock = label.get("label") or {}
     results, summary = variety_mod.run(cfg)
 
-    all_tracks = {
-        slug: ledger_mod.load_band_tracks(band) for slug, band in cfg.bands.items()
-    }
+    # Releases and work in progress, split per band. Counting every ledger row as
+    # a track put 22 on this page while certification checked 21 and the label
+    # README said 21 — three numbers, none of them saying which it meant.
+    all_tracks: dict[str, list[dict]] = {}
+    wip_tracks: dict[str, list[dict]] = {}
+    for slug, band in cfg.bands.items():
+        rel, wip = [], []
+        for t in ledger_mod.load_band_tracks(band):
+            (rel if lc_mod.is_released(lc_mod.assess(t).stage) else wip).append(t)
+        all_tracks[slug], wip_tracks[slug] = rel, wip
+
     total = sum(len(v) for v in all_tracks.values())
+    total_wip = sum(len(v) for v in wip_tracks.values())
     runtime = sum(
         t.get("duration_s") or 0 for v in all_tracks.values() for t in v
     )
@@ -701,19 +748,24 @@ def _catalog_index(cfg: Config, out_root: Path) -> str:
     if lblock.get("axiom"):
         L += [f"> {lblock['axiom']}", ""]
 
-    L += ["## The roster", "", "| Act | Role | Position | Tracks |", "| --- | --- | --- | --- |"]
+    L += ["## The roster", "", "| Act | Role | Position | Releases |", "| --- | --- | --- | --- |"]
     for slug in cfg.bands:
         spec = context_mod.band_spec(cfg, slug)
         b = spec.get("band") or {}
+        count = str(len(all_tracks[slug]))
+        if wip_tracks[slug]:
+            count += f" *(+{len(wip_tracks[slug])} in progress)*"
         L.append(
             f"| [{b.get('name', slug)}]({slug}.md) | {b.get('role','')} | "
-            f"{b.get('disagreement','')} | {len(all_tracks[slug])} |"
+            f"{b.get('disagreement','')} | {count} |"
         )
     L.append("")
 
     L += ["## Totals", "", "| | |", "| --- | --- |"]
     L.append(f"| Acts | {len(cfg.bands)} |")
-    L.append(f"| Tracks | {total} |")
+    L.append(f"| Releases | {total} |")
+    if total_wip:
+        L.append(f"| In progress | {total_wip} |")
     L.append(f"| Runtime | {runtime // 60} min |")
     dist = summary.get("label_stances") or {}
     if dist:
@@ -778,6 +830,11 @@ def _catalog_html(cfg: Config, out_root: Path) -> str:
         # near-black, so it reads as a lit panel rather than a header bleeding into
         # the background. Left deliberately full-width and unfaded.
         ".hero{display:block;width:100%;height:auto;border-radius:6px;margin:0 0 1.5rem}",
+        # Work in progress is deliberately not styled as a track: no cover slot, no
+        # player, recessed and rule-marked. A brief rendered as a .track looked like
+        # a release whose audio had failed to load.
+        ".wip{margin:1.5rem 0;padding:.7rem 1rem;background:#161616;"
+        "border-left:3px solid #444;border-radius:4px;color:#8a8a8a;font-size:.9rem}",
         "</style>",
     ]
     # Same image as the markdown index: the player is the catalogue's playable
@@ -803,7 +860,11 @@ def _catalog_html(cfg: Config, out_root: Path) -> str:
         parts.append(f"<h2>{html.escape(b.get('name', slug))}</h2>")
         if b.get("disagreement"):
             parts.append(f"<p><em>{html.escape(b['disagreement'])}</em></p>")
-        for t in ledger_mod.load_band_tracks(cfg.bands[slug]):
+        rows = ledger_mod.load_band_tracks(cfg.bands[slug])
+        released, wip = [], []
+        for t in rows:
+            (released if lc_mod.is_released(lc_mod.assess(t).stage) else wip).append(t)
+        for t in released:
             art = t.get("artwork")
             audio = t.get("audio")
             parts.append("<div class=track>")
@@ -826,8 +887,26 @@ def _catalog_html(cfg: Config, out_root: Path) -> str:
                     f'src="{asset_link(out_root, "catalog", cfg.audio_root / audio)}"></audio>'
                 )
             else:
+                # Now reachable only for a RELEASED track whose master is missing,
+                # which certification reports as a gap. Before the split it fired
+                # on every brief, so the one case that means something was buried
+                # among cases that meant nothing.
                 parts.append("<div class=meta>no master on disk</div>")
             parts.append("</div></div>")
+
+        for t in wip:
+            a = lc_mod.assess(t)
+            bits = [str(t.get("id")), f"stage {a.stage}"]
+            if a.next_stage:
+                bits.append(
+                    f"next: {a.next_stage}"
+                    f" ({'human' if a.blocked_on_human else 'tool'})"
+                )
+            parts.append(
+                "<div class=wip><strong>"
+                f"{html.escape(str(t.get('title')))}</strong><br>"
+                f"In progress — {html.escape(' · '.join(bits))}</div>"
+            )
     return "\n".join(parts) + "\n"
 
 

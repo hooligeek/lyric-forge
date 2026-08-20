@@ -145,6 +145,30 @@ STAGES: list[Stage] = [
 BY_ID = {s.id: s for s in STAGES}
 SEQUENCE = [s for s in sorted(STAGES, key=lambda s: s.order) if s.order >= 0]
 
+# Stages at which a track is a release rather than work in progress.
+#
+# This lives here, with the stages themselves, because two modules need it and
+# they must agree. It used to be private to `certify`, so `docs` counted every
+# ledger row instead: the generated catalogue announced 22 tracks and 4 Warhead
+# songs while certification checked 21 and the label README said 21. Three numbers,
+# each true of what it counted, none of them saying which. A brief with no title
+# and no audio rendered as a catalogue entry.
+#
+# One definition, imported by both. A track mid-pipeline is not a gap in the
+# catalogue, it is work — but it is also not a release, and a document that blurs
+# the two is making a claim it cannot support.
+RELEASED = {"imported", "adjudicated", "mastered"}
+
+
+def is_released(stage: str) -> bool:
+    """True when a derived stage means "finished and published".
+
+    Takes the stage string rather than the track so callers can pass either
+    `assess(t).stage` or a stored value. Splits on "/" because an imported track
+    carries a compound stage like `imported/adjudicated`.
+    """
+    return str(stage or "").split("/")[0] in RELEASED
+
 
 def _has(track: dict, path: str) -> bool:
     value = ledger_mod.get_nested(track, path)

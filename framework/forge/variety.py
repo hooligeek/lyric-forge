@@ -24,6 +24,7 @@ import yaml
 
 from . import config as config_mod
 from . import ledger as ledger_mod
+from . import lifecycle as lc_mod
 from .config import Config
 
 # A stance holding more than this share of a band's classified catalogue is
@@ -64,6 +65,17 @@ def run(cfg: Config) -> tuple[list[BandVariety], dict]:
     for slug, band in cfg.bands.items():
         bv = BandVariety(slug=slug)
         for t in ledger_mod.load_band_tracks(band):
+            # Work in progress is not variety. A brief has no lyrics, no key and
+            # no style prompt, so it cannot contribute to a distribution — but its
+            # stance was being counted as used, which struck that stance off the
+            # never-written list while no song carrying it existed.
+            #
+            # That mattered beyond the count: `pipeline.next_actions` reads this to
+            # decide what to suggest writing, and the never-written stances are the
+            # available songs. An unwritten brief would steer the roster away from
+            # the exact gap it was created to fill.
+            if not lc_mod.is_released(lc_mod.assess(t).stage):
+                continue
             bv.total += 1
             stance = ledger_mod.get_nested(t, "matrix.stance")
             suite = ledger_mod.get_nested(t, "matrix.suite")

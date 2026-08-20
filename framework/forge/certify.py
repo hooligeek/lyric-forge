@@ -41,12 +41,11 @@ from . import lifecycle as lc_mod
 from . import reconcile as reconcile_mod
 from .config import Config
 
-# Stages at which a track is finished enough that gaps are gaps.
-RELEASED = {"imported", "adjudicated", "mastered"}
-
-
-def _released(stage: str) -> bool:
-    return stage.split("/")[0] in RELEASED
+# Stages at which a track is finished enough that gaps are gaps. Defined in
+# `lifecycle`, alongside the stages, so the catalogue generator and this file
+# cannot disagree about what counts as a release — they did, and the catalogue
+# published the larger number.
+_released = lc_mod.is_released
 
 
 @dataclass
