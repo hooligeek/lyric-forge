@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Client-side branch protection.
+#
+# GitHub's branch protection and rulesets are both unavailable on a free private
+# repository ("Upgrade to GitHub Pro or make this repository public"), so the
+# server cannot refuse a bad push. This can.
+#
+# Be clear about what this is: a seatbelt, not a lock. It runs on the machine
+# doing the pushing, it can be skipped with --no-verify, and anyone who clones
+# without running `make hooks` does not have it. It stops accidents, which is the
+# actual risk for a solo operator with 110 MB of irreplaceable masters in a repo
+# whose history has already been rewritten once.
+#
+# Install:  git config core.hooksPath .githooks
+#
+# Checks, in order of how much damage they prevent:
+#   1. no force-push to a protected branch      (history loss)
+#   2. no deletion of a protected branch        (branch loss)
+#   3. no push from a dirty tree                (unreproducible remote state)
+#   4. gates must pass                          (broken state published)
+
+set -uo pipefail
+
+PROTECTED="main vector-soul"
+ZERO="0000000000000000000000000000000000000000"
+FAIL=0
+
+say()  { printf '  %s\n' "$1" >&2; }
+fail() { printf 'pre-push: %s\n' "$1" >&2; FAIL=1; }
+
+is_protected() {
+    for b in $PROTECTED; do [ "$1" = "$b" ] && return 0; done
+    return 1
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    branch="${remote_ref#refs/heads/}"
+    is_protected "$branch" || continue
+
+    # --- deletion --------------------------------------------------------
+    if [ "$local_sha" = "$ZERO" ]; then
+        fail "refusing to delete protected branch '$branch'."
+        say "This branch is listed as protected in .githooks/pre-push."
+        continue
+    fi
+
+    # --- non-fast-forward ------------------------------------------------
+    # A remote commit that is not an ancestor of what we are pushing means
+    # history is being discarded. That is occasionally correct — it was correct
+    # once, to purge a leaked identifier — and it should never be accidental.
+    if [ "$remote_sha" != "$ZERO" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+        fail "refusing a non-fast-forward push to protected branch '$branch'."
+        say "The remote has $(git rev-list --count "$local_sha..$remote_sha" 2>/dev/null || echo '?') commit(s) this push would discard."
+        say "If the rewrite is deliberate:  git push --no-verify --force-with-lease"
+        say "Prefer --force-with-lease over --force; it refuses if the remote moved."
+        continue
+    fi
+done
+
+# --- working tree ---------------------------------------------------------
+# Pushing from a dirty tree publishes a state that cannot be reproduced from
+# the working copy that produced it.
+if [ -n "$(git status --porcelain)" ]; then
+    fail "working tree is not clean."
+    git status --short | head -8 >&2
+    say "Commit or stash first, so the pushed state matches the tree that made it."
+fi
+
+# --- gates ---------------------------------------------------------------
+# Same checks CI runs, before the network rather than after. Skipped if the
+# toolchain is not installed, because a missing venv is not a reason to block a
+# docs typo — CI will still catch it.
+FORGE=""
+if [ -x ./.venv/bin/forge ]; then FORGE="./.venv/bin/forge"
+elif command -v forge >/dev/null 2>&1; then FORGE="forge"
+fi
+
+if [ -n "$FORGE" ]; then
+    if ! $FORGE reconcile --strict >/dev/null 2>&1; then
+        fail "reconcile --strict reports defects."
+        $FORGE reconcile 2>&1 | grep -E '^-- ' | head -6 >&2
+    fi
+    if ! $FORGE prompt lint >/dev/null 2>&1; then
+        fail "prompt lint is failing."
+        $FORGE prompt lint 2>&1 | head -6 >&2
+    fi
+else
+    say "note: forge not installed here, skipping the gates. CI will still run them."
+fi
+
+if [ "$FAIL" -ne 0 ]; then
+    printf '\npre-push: blocked. Override with --no-verify if you know why.\n' >&2
+    exit 1
+fi
+exit 0

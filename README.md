@@ -88,6 +88,23 @@ forge stages     # the process itself
 Those three exist because an agent — or you, returning after a month — arrives
 with no idea what the project needs.
 
+### Protect your branches
+
+```bash
+make hooks    # git config core.hooksPath .githooks
+```
+
+GitHub's branch protection and rulesets require a public repository or a paid
+plan. On a free private repo the server cannot refuse a bad push, so this does it
+locally: no force-push or deletion of `main`, no pushing from a dirty tree, and
+the gates must pass first.
+
+It is a seatbelt, not a lock — it runs on the pushing machine, `--no-verify`
+skips it, and a fresh clone does not have it until `make hooks` is run. It stops
+accidents, which for a repository holding irreplaceable masters is the risk that
+actually matters. If you make the repository public, configure real branch
+protection as well; the two are complementary.
+
 ---
 
 ## Writing a song
