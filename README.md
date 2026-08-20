@@ -123,6 +123,27 @@ Only a human knows which is which: *"the machine is a vessel, but the man is the
 soul"* recurring across two songs is the label axiom working as intended, while
 *"get out of the way"* closing three of six songs is a rut.
 
+Stage directions are excluded from the corpus. A line wholly wrapped in
+parentheses — `(Spoken)`, `(Grinding Lemmy-esque bass solo ripping through the
+mix)` — belongs in the sheet, because it goes into Suno's lyric box, but nobody
+sings it. Counting them made two Warhead songs look like they shared a phrase
+when what they shared was an outro instruction. The same exclusion matters more
+for the transcript diff, where a stage direction would read as a divergence.
+
+### Cross-band mining
+
+```bash
+python3 -m framework.forge mine --label
+```
+
+When the roster premise is "several facets of one person" rather than several
+unrelated acts, the more dangerous repetition is *between* bands, and per-band
+mining is structurally blind to it. One band repeating itself has a motif; two
+bands sharing phrasing is the roster collapsing into a single voice.
+
+Deliberate label-wide axioms surface here too, and that is correct — the
+operator should confirm they are intentional rather than have the tool guess.
+
 ## Why the ledger is data and not prose
 
 The predecessor of this system kept its metadata ledger inside notebook

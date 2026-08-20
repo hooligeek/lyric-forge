@@ -168,6 +168,84 @@ def mine_band(band: Band) -> MineResult:
     return result
 
 
+@dataclass
+class CrossHit:
+    phrase: str
+    n: int
+    bands: list[str] = field(default_factory=list)
+    songs: list[str] = field(default_factory=list)
+
+    @property
+    def band_count(self) -> int:
+        return len(self.bands)
+
+
+def mine_label(cfg) -> list[CrossHit]:
+    """Find phrases that cross *band* boundaries.
+
+    This is the check that matters most once the roster premise is "five facets
+    of one person". Warhead repeating Warhead is a band with a motif. Warhead
+    sounding like Silicon Kings is the roster collapsing into a single voice —
+    and it is invisible to per-band mining.
+
+    Deliberate label-wide axioms will surface here too. That is correct: the
+    operator needs to see them and confirm they are intentional, rather than
+    have the tool decide.
+    """
+    songs: list[tuple[str, str, lyrics_mod.Song]] = []  # (band, title, song)
+    for slug, band in cfg.bands.items():
+        for t in ledger_mod.load_band_tracks(band):
+            rel = t.get("lyric_sheet")
+            if not rel:
+                continue
+            path = config_mod.REPO_ROOT / rel
+            if path.exists():
+                songs.append((slug, t.get("title") or path.stem, lyrics_mod.load_sheet(path)))
+
+    owners: dict[tuple[str, ...], set[tuple[str, str]]] = defaultdict(set)
+    for band_slug, title, song in songs:
+        for _n, grams in _collect_ngrams(tokenize(song.plain_text())).items():
+            for g in grams:
+                owners[g].add((band_slug, title))
+
+    hits: list[Hit] = []
+    meta: dict[str, tuple[list[str], list[str]]] = {}
+    for g, refs in owners.items():
+        bands = sorted({b for b, _ in refs})
+        if len(bands) < 2:
+            continue
+        phrase = " ".join(g)
+        hits.append(Hit(phrase=phrase, n=len(g), songs=sorted(f"{b}/{t}" for b, t in refs)))
+        meta[phrase] = (bands, sorted(f"{b}/{t}" for b, t in refs))
+
+    pruned = _prune_contained(hits)
+    out = [
+        CrossHit(phrase=h.phrase, n=h.n, bands=meta[h.phrase][0], songs=meta[h.phrase][1])
+        for h in pruned
+    ]
+    out.sort(key=lambda c: (-c.band_count, -c.n))
+    return out
+
+
+def format_cross(hits: list[CrossHit], limit: int = 30) -> str:
+    lines: list[str] = []
+    lines.append("=" * 78)
+    lines.append("CROSS-BAND REPETITION  (phrases shared between different acts)")
+    lines.append("=" * 78)
+    if not hits:
+        lines.append("None. Every act's phrasing is its own.")
+        return "\n".join(lines)
+    for c in hits[:limit]:
+        lines.append(f"  [{c.band_count} bands] \"{c.phrase}\"")
+        lines.append(f"             {', '.join(c.songs)}")
+    if len(hits) > limit:
+        lines.append(f"  ... {len(hits) - limit} more")
+    lines.append("")
+    lines.append("Triage: a shared label axiom belongs here and is intentional.")
+    lines.append("Anything else is the roster converging on one voice.")
+    return "\n".join(lines)
+
+
 def format_result(r: MineResult, limit: int = 25) -> str:
     lines: list[str] = []
     lines.append("=" * 78)

@@ -59,6 +59,9 @@ STRUCTURE_RE = re.compile(
 # No lyric line is this long. Prose paragraphs are.
 MAX_LYRIC_LINE = 300
 
+# A line that is nothing but a parenthetical is a stage direction, not a lyric.
+PAREN_ONLY_RE = re.compile(r"^\s*[\(\[][^)\]]*[\)\]]\s*$")
+
 # Lines that are seal/metadata furniture, never lyrics or titles.
 FURNITURE_RE = re.compile(
     r"^\s*(-{5,}|={5,}|\*{3,}|"
@@ -114,8 +117,22 @@ class Section:
         return self.name.startswith("style")
 
     @property
+    def sung_lines(self) -> list[str]:
+        """Lines that are actually performed.
+
+        A line wholly wrapped in parentheses is a production or performance note
+        — "(Spoken)", "(Fast D-beat drum fill, feedback swell)", "(Grinding
+        Lemmy-esque bass solo ripping through the mix)". They belong in the sheet
+        because they go into Suno's lyric box, but they are not words anyone
+        sings, so they must not reach the transcript diff (where they would read
+        as divergences) or the repetition miner (where shared stage directions
+        read as shared phrases).
+        """
+        return [ln for ln in self.lines if not PAREN_ONLY_RE.match(ln)]
+
+    @property
     def word_count(self) -> int:
-        return sum(len(ln.split()) for ln in self.lines)
+        return sum(len(ln.split()) for ln in self.sung_lines)
 
 
 @dataclass
@@ -134,10 +151,11 @@ class Song:
         return sum(s.word_count for s in self.lyric_sections)
 
     def plain_text(self) -> str:
-        """Lyrics only, no cues — the diff target for transcription."""
+        """Sung words only — no cues, no stage directions. The diff target
+        for transcription and the corpus for repetition mining."""
         out: list[str] = []
         for s in self.lyric_sections:
-            out.extend(s.lines)
+            out.extend(s.sung_lines)
         return "\n".join(out)
 
 

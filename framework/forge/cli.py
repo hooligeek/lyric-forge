@@ -150,8 +150,38 @@ def cmd_import_lyrics(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_relink(args: argparse.Namespace) -> int:
+    """Wire hand-authored lyric sheets into the ledger by slug."""
+    cfg = config_mod.load()
+    linked = 0
+    for slug, band in cfg.bands.items():
+        lyrics_dir = band.dir / "lyrics"
+        if not lyrics_dir.exists():
+            continue
+        tracks = ledger_mod.load_band_tracks(band)
+        changed = False
+        for t in tracks:
+            tslug = t.get("slug") or slugify(t.get("title", ""))
+            candidate = lyrics_dir / f"{tslug}.md"
+            if not candidate.exists():
+                continue
+            rel = candidate.relative_to(config_mod.REPO_ROOT).as_posix()
+            if t.get("lyric_sheet") != rel:
+                t["lyric_sheet"] = rel
+                print(f"  linked {t.get('id')} {t.get('title')} -> {rel}")
+                linked += 1
+                changed = True
+        if changed:
+            ledger_mod.save_band_tracks(band, tracks)
+    print(f"{linked} sheet(s) linked.")
+    return 0
+
+
 def cmd_mine(args: argparse.Namespace) -> int:
     cfg = config_mod.load()
+    if args.label:
+        print(mine_mod.format_cross(mine_mod.mine_label(cfg), limit=args.limit))
+        return 0
     targets = [args.band] if args.band else list(cfg.bands)
     for slug in targets:
         if slug not in cfg.bands:
@@ -185,9 +215,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("mine", help="find phrases the band has already spent")
     p.add_argument("--band", help="band slug (default: all)")
+    p.add_argument("--label", action="store_true", help="cross-band repetition instead")
     p.add_argument("--limit", type=int, default=25, help="max rows per section")
     p.add_argument("--write", action="store_true", help="write retired.yaml triage file")
     p.set_defaults(func=cmd_mine)
+
+    p = sub.add_parser("relink", help="wire hand-authored lyric sheets into the ledger")
+    p.set_defaults(func=cmd_relink)
 
     p = sub.add_parser("import-lyrics", help="import lyric sheets from a harvest document")
     p.add_argument("--band", required=True, help="band slug")
