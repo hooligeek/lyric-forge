@@ -132,6 +132,12 @@ def ingest(
             f"{', '.join(sorted(AUDIO_SUFFIXES))}"
         )
 
+    # Validate the SOURCE before touching anything. Everything below this point
+    # is destructive — it overwrites a master and archives its analysis — so a
+    # file that is not audio must be rejected before the first side effect, not
+    # discovered after. A zero-byte file previously got all the way through.
+    probe = audio_mod.probe(source)
+
     rows, track = _file_track(cfg, band, slug)
     warnings: list[str] = []
 
@@ -177,7 +183,6 @@ def ingest(
         else:
             shutil.copy2(source, dest)
 
-    probe = audio_mod.probe(dest)
     audio_rel = f"{band}/{dest.name}"
 
     track["audio"] = audio_rel

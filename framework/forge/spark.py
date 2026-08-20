@@ -23,7 +23,7 @@ gate decorative.
 from __future__ import annotations
 
 import datetime
-import re
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -39,27 +39,31 @@ from .config import Config, slugify
 SPARKS_DIR = config_mod.LABEL_DIR / "sparks"
 BRIEFS_DIR = config_mod.LABEL_DIR / "briefs"
 
-STOPWORDS = {
-    "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "at", "for",
-    "with", "is", "are", "was", "were", "it", "its", "that", "this", "i", "my",
-    "we", "our", "you", "your", "so", "as", "if", "about", "just", "got",
-}
-
 
 def make_spark_id(text: str, explicit: str | None = None) -> str:
-    """Readable id: date plus a few content words.
+    """Date plus an opaque suffix, unless the operator names it themselves.
 
-    A hash would be shorter and uglier. This is a file a human will open and
-    recognise months later, so it reads like a note rather than a checksum.
+    This used to build the id from the first four content words of the spark, so
+    a note beginning "Third night this week the box has thermal-throttled" became
+    an id spelling out "third night week box". That id then travelled into the
+    committed brief filename, the ledger, the generated catalogue and its public
+    HTML — ten locations, none of which the operator chose to publish.
+
+    That is precisely the leak this module's own docstring warns about — a
+    "derived summary" reaching a committed file — implemented by the function
+    that was supposed to prevent it. `label/sparks/` being gitignored is
+    worthless if the filename carries the content.
+
+    An explicit `--title` is different: naming it is the operator choosing what
+    becomes public, so that spelling is honoured.
     """
+    today = datetime.date.today().isoformat()
     if explicit:
-        return f"{datetime.date.today().isoformat()}-{slugify(explicit)}"
-    words = [
-        w for w in re.findall(r"[A-Za-z0-9']+", text.lower())
-        if w not in STOPWORDS and len(w) > 2
-    ]
-    tail = slugify(" ".join(words[:4])) or "untitled"
-    return f"{datetime.date.today().isoformat()}-{tail}"
+        return f"{today}-{slugify(explicit)}"
+    # Random, not a hash of the text: a hash is stable, and a stable identifier
+    # derived from private content is a confirmation oracle for anyone who can
+    # guess the wording.
+    return f"{today}-{secrets.token_hex(3)}"
 
 
 @dataclass

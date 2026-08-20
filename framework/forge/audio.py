@@ -88,10 +88,31 @@ def probe(path: Path) -> Probe:
         except ValueError:
             return None
 
+    duration = float(dur[0]) if dur else 0.0
+    codec = fields[0] if len(fields) > 0 and fields[0] else None
+
+    # Fail loudly on a file with nothing in it.
+    #
+    # This returned duration_s=0.0 and a null codec, which propagated as a
+    # *measurement*: ingest recorded duration_s: 0, the declared and measured
+    # values then agreed at zero, the hash matched (of empty), and
+    # `reconcile --strict` reported a clean catalogue at rc=0 — after the file
+    # had overwritten a real master and archived its analysis as superseded.
+    #
+    # That is the predecessor's "PASS for files that do not exist" reproduced
+    # inside the tool built to end it. An absent measurement must never be
+    # indistinguishable from a measurement of zero.
+    if not codec or duration <= 0.0:
+        raise AudioError(
+            f"{path.name} has no decodable audio stream "
+            f"(codec={codec or 'none'}, duration={duration}s, "
+            f"{path.stat().st_size} bytes). Refusing to treat this as audio."
+        )
+
     return Probe(
         path=path,
-        duration_s=float(dur[0]) if dur else 0.0,
-        codec=fields[0] if len(fields) > 0 and fields[0] else None,
+        duration_s=duration,
+        codec=codec,
         sample_rate=_int(fields[1]) if len(fields) > 1 else None,
         channels=_int(fields[2]) if len(fields) > 2 else None,
         bit_rate=_int(fields[3]) if len(fields) > 3 else None,

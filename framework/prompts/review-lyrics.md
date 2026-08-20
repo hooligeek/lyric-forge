@@ -39,9 +39,7 @@ Report problems. Do not rewrite, do not offer a better version, do not praise.
 
 ## The lyrics under review
 
-```
 {{lyrics}}
-```
 
 {{#extra_context}}
 ## What the user is asking for

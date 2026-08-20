@@ -182,17 +182,26 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             if tslug not in audio_by_slug:
                 rep.add("PHANTOM_TRACK", slug, subject, "ledger entry with no audio file")
             elif probe_audio:
-                actual = audio_mod.probe(audio_by_slug[tslug]).duration_s
-                declared = t.get("duration_s")
-                if declared is None:
-                    rep.add("NO_DURATION", slug, subject, f"actual is {actual:.0f}s")
-                elif abs(float(declared) - actual) > 1.0:
-                    rep.add(
-                        "DURATION_DRIFT",
-                        slug,
-                        subject,
-                        f"ledger says {declared}s, audio is {actual:.0f}s",
-                    )
+                # Defence in depth: the zero-byte failure got through because
+                # every layer independently agreed with a measurement of zero.
+                try:
+                    actual = audio_mod.probe(audio_by_slug[tslug]).duration_s
+                except audio_mod.AudioError as exc:
+                    rep.add("UNPLAYABLE_AUDIO", slug, subject, str(exc))
+                    actual = None
+                if actual is None:
+                    pass
+                else:
+                    declared = t.get("duration_s")
+                    if declared is None:
+                        rep.add("NO_DURATION", slug, subject, f"actual is {actual:.0f}s")
+                    elif abs(float(declared) - actual) > 1.0:
+                        rep.add(
+                            "DURATION_DRIFT",
+                            slug,
+                            subject,
+                            f"ledger says {declared}s, audio is {actual:.0f}s",
+                        )
 
             # Naming convention: one slug addresses every asset a track has.
             # Assets arrive from Suno and image exports with spaces, ampersands,

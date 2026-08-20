@@ -60,6 +60,20 @@ class Provider:
                 f"Credentials are read from the environment only — never from a "
                 f"file in the repo, and never from a command-line argument."
             )
+        # Reject control characters here, and NEVER echo the value while doing it.
+        #
+        # `.strip()` removes trailing whitespace, but an interior CR or LF
+        # survives — and http.client then raises
+        # `ValueError: Invalid header value b'sk-...\\nX-Injected: yes'`, with the
+        # credential verbatim in the message. That exception is not an HTTPError
+        # or a URLError, so it escaped `call()` as an unhandled traceback.
+        bad = {c for c in value if ord(c) < 0x20 or ord(c) == 0x7F}
+        if bad:
+            raise InferenceError(
+                f"{self.api_key_env} contains {len(bad)} control character(s) "
+                f"(likely a newline from a copy-paste). The value is not shown. "
+                f"Re-export it as a single line."
+            )
         return value
 
 
@@ -244,6 +258,19 @@ def call(provider: Provider, prompt_text: str) -> Completion:
         ) from exc
     except urllib.error.URLError as exc:
         raise InferenceError(f"could not reach {provider.name}: {exc.reason}") from exc
+    except Exception as exc:  # noqa: BLE001 — deliberate, see below
+        # Catch-all, and `from None` so the original traceback is discarded.
+        #
+        # Anything raised between here and the wire has had the credential in
+        # scope: http.client puts the header value into its own ValueError, and
+        # any such exception propagating would print the key. A narrow except
+        # clause here is a credential-disclosure bug, not tidy error handling.
+        # The type name is safe to report; the message is not.
+        raise InferenceError(
+            f"{provider.name} request failed with {type(exc).__name__}. "
+            f"The message is withheld because exceptions raised while building "
+            f"the request can contain the credential."
+        ) from None
 
     usage = payload.get("usage") or payload.get("usageMetadata") or {}
     return Completion(

@@ -33,9 +33,7 @@ wrong, note it after the sheet; do not silently repair it.
 
 ## Lyric body
 
-```
 {{lyrics}}
-```
 
 ## Required output shape
 
