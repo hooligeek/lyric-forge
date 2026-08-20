@@ -98,7 +98,14 @@ def dhash(path: Path, crop: str | None = None) -> int:
     vf = f"{crop}," if crop else ""
     raw = _ffmpeg_raw(path, f"{vf}scale={DHASH_W}:{DHASH_H}", "gray")
     if len(raw) < DHASH_W * DHASH_H:
-        return 0
+        # Returning 0 made every unhashable image hash identically, so two
+        # unreadable files compared as the same picture at distance 0 — the
+        # duplicate detector's strongest possible verdict, from no data at all.
+        raise RuntimeError(
+            f"{path.name}: ffmpeg returned {len(raw)} bytes, expected "
+            f"{DHASH_W * DHASH_H}. Cannot hash; refusing to return a value that "
+            f"would compare equal to every other failure."
+        )
     bits = 0
     for row in range(DHASH_H):
         base = row * DHASH_W
@@ -149,6 +156,9 @@ def load_art(path: Path, with_palette: bool = True) -> Art:
     # Filenames in the wild carry trailing spaces ("Analog Wasteland .jpeg"),
     # so strip before slugifying or nothing matches the ledger.
     title = path.stem.strip()
+    # One ffprobe, not two: this used to be `dimensions(path)[0]` and
+    # `dimensions(path)[1]`, spawning the same subprocess twice per image.
+    w, h = dimensions(path)
     return Art(
         path=path,
         slug=slugify(title),
@@ -156,8 +166,8 @@ def load_art(path: Path, with_palette: bool = True) -> Art:
         sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         dhash=dhash(path),
         dhash_center=dhash(path, crop=CROP_CENTER),
-        width=dimensions(path)[0],
-        height=dimensions(path)[1],
+        width=w,
+        height=h,
         palette=palette(path) if with_palette else [],
     )
 

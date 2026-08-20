@@ -109,6 +109,49 @@ def _check_yaml_validity(rep: Report) -> None:
             )
 
 
+def _check_evidence_integrity(rep: Report, slug: str, subject: str, t: dict) -> None:
+    """Enforce the invariants AGENTS.md states.
+
+    They were written down and nothing checked them, which is the same posture as
+    the prose compliance protocol this project replaced: a document asserting
+    standards with no mechanism behind it. These are all decidable.
+    """
+    analysis = t.get("analysis")
+    log = t.get("glitch_log") or []
+
+    for i, g in enumerate(log):
+        anchor = g.get("anchor") or {}
+        src = g.get("source")
+        verified = g.get("timecode_verified")
+        tc = anchor.get("timecode")
+        where = f"glitch_log[{i}]"
+
+        # A measured entry must carry a verified timecode; that is what
+        # "measured" means.
+        if src == "forge-measured" and not (verified and tc):
+            rep.add("UNSOUND_EVIDENCE", slug, subject,
+                    f"{where} claims source 'forge-measured' but "
+                    f"timecode={tc!r}, verified={verified!r}")
+
+        # A perceptual entry must NOT claim verification. The original catalogue
+        # carried round timecodes from a notebook with no ability to measure time.
+        if src == "notebook-perceptual" and verified:
+            rep.add("UNSOUND_EVIDENCE", slug, subject,
+                    f"{where} is perceptual yet marked timecode_verified: true")
+
+        # A verified timecode with no analysis to have produced it is fabricated.
+        if verified and tc and not analysis:
+            rep.add("UNSOUND_EVIDENCE", slug, subject,
+                    f"{where} carries a verified timecode but the track has no "
+                    f"analysis block. Nothing measured it.")
+
+    # A glitch log with no audio at all cannot have been observed.
+    if log and not t.get("audio"):
+        rep.add("UNSOUND_EVIDENCE", slug, subject,
+                f"{len(log)} glitch entries on a track with no audio — a glitch "
+                f"log is written after a render, never before")
+
+
 def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Report:
     rep = Report()
     _check_yaml_validity(rep)
@@ -240,6 +283,8 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                     subject,
                     f"artwork is {actual_art}, convention is songs/{tslug}<ext>",
                 )
+
+            _check_evidence_integrity(rep, slug, subject, t)
 
             art = t.get("artwork")
             if not art:

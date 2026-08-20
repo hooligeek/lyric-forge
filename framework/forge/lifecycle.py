@@ -193,12 +193,20 @@ def assess(track: dict) -> Assessment:
     than read from a field that someone has to remember to update. A recorded
     stage that disagrees with reality is worse than no stage at all.
     """
+    # The stored stage is NOT an input to the derivation.
+    #
+    # It used to be: `imported` was read from the field, so hand-setting
+    # `lifecycle.stage: imported` on a fully-specified track pushed it down the
+    # legacy path and misdirected `next`. That contradicted the documented
+    # invariant — "stage is derived from what exists on disk" — by making the
+    # stored value load-bearing in exactly the case where it disagreed. It is now
+    # read only to report a mismatch.
     declared = ledger_mod.get_nested(track, "lifecycle.stage")
     a = Assessment(
         track_id=track.get("id") or "?",
         title=track.get("title") or "",
         band=track.get("band") or "",
-        stage=declared or "imported",
+        stage="imported",
         gate=MACHINE,
     )
 
@@ -210,8 +218,10 @@ def assess(track: dict) -> Assessment:
         else:
             break
 
-    imported = declared == "imported" or (
-        reached is None and _has(track, "lyric_sheet")
+    # Derived, not declared: a track is legacy if it has finished artefacts but
+    # no spark. That is a fact about the filesystem, which is the point.
+    imported = not _has(track, "provenance.spark") and (
+        _has(track, "lyric_sheet") or _has(track, "audio")
     )
 
     # An imported track already has a finished song. Walking it from stage 0
@@ -245,6 +255,13 @@ def assess(track: dict) -> Assessment:
     else:
         a.next_stage = None
         a.next_action = "Complete."
+
+    if declared and declared != a.stage and not a.stage.startswith(f"{declared}/"):
+        a.notes.append(
+            f"lifecycle.stage records '{declared}' but the files on disk derive "
+            f"'{a.stage}'. The derived value is authoritative; the stored one is a "
+            f"stale or hand-edited stamp."
+        )
 
     # Cross-checks the stage machine cannot see from requirements alone.
     analysis = track.get("analysis") or {}

@@ -1099,7 +1099,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("reconcile", help="check audio, ledger, and lyric sheets agree")
     p.add_argument("--fast", action="store_true", help="skip ffprobe duration checks")
     p.add_argument("--no-hash", action="store_true", help="skip asset drift checks")
-    p.add_argument("--strict", action="store_true", help="exit 1 if any findings")
+    p.add_argument("--strict", action="store_true",
+                   help="exit 1 on defects; informational findings "
+                        "(IN_PROGRESS, WIP_GAP) do not fail the gate")
     p.set_defaults(func=cmd_reconcile)
 
     p = sub.add_parser("probe", help="print an audio facts table")

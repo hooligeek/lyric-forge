@@ -5,10 +5,22 @@ nothing but a notebook. No install, no code, no command line.
 
 ## What you need
 
-1. **A vision.** However messy. A genre, a grievance, an image, an argument you
+1. **A notebook with an AI assistant that can read uploaded files.** These
+   instructions were written for **Google NotebookLM** (free, notebooklm.google.com),
+   which is where the "upload these as sources" wording comes from. Anything that
+   can hold a dozen documents in context and answer against them will work.
+2. **A music generator that accepts a lyrics box and a style prompt.** These
+   instructions assume **Suno** (suno.com), because the section-cue format below
+   is written for how Suno reads bracketed tags. Another generator will work but
+   you may have to adapt the cue syntax.
+3. **A vision.** However messy. A genre, a grievance, an image, an argument you
    had. It does not need to be tidy — the tidying is step 2.
-2. **A demo song** (optional but useful). Any render, even a bad one. It tells you
+4. **A demo song** (optional but useful). Any render, even a bad one. It tells you
    what your style prompt actually produces.
+
+Both services have free tiers at the time of writing. Neither is required by the
+*method* — the standards, the stances and the prompts are generator-agnostic —
+but the wording below names them because vague instructions are useless.
 
 ## What to upload
 

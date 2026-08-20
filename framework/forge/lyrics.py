@@ -351,6 +351,11 @@ def parse(raw: str, source: str = "") -> list[Song]:
             if stripped.startswith("#"):
                 continue
             if len(stripped) > MAX_LYRIC_LINE:
+                # Silently dropping it made a truncated import look complete.
+                # Record it on the song so callers can surface it.
+                current.meta.setdefault("dropped_long_lines", []).append(
+                    stripped[:80] + "..."
+                )
                 continue
             current_section.lines.append(stripped)
 

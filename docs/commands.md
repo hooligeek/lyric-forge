@@ -185,7 +185,7 @@ check audio, ledger, and lyric sheets agree
 | --- | --- |
 | `--fast` | skip ffprobe duration checks |
 | `--no-hash` | skip asset drift checks |
-| `--strict` | exit 1 if any findings |
+| `--strict` | exit 1 on defects; informational findings (IN_PROGRESS, WIP_GAP) do not fail the gate |
 
 ## `relink`
 

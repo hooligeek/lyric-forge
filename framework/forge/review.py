@@ -68,19 +68,52 @@ class Finding:
         return out
 
 
+# Vowel pairs that are genuinely two nuclei rather than one. A bare [aeiouy]+
+# run counted "io" in "epistemological" as one, undercounting exactly the
+# Latinate compounds the placement check exists to flag, while "ea" in "breath"
+# was counted as two.
+DIPHTHONG_SPLITS = ("io", "ia", "ea", "eo", "ua", "ue", "uo", "iu", "yi")
+DIPHTHONG_JOINS = ("ea", "ai", "ay", "ee", "ei", "ey", "oa", "oo", "ou", "oy",
+                   "au", "aw", "ew", "ie", "oi", "ue")
+
+
 def syllables(word: str) -> int:
+    """Approximate, and deliberately documented as such.
+
+    It gates `placement-risk` at four syllables, so being wrong AT the threshold
+    was the whole problem: a bare vowel-run count both under- and over-counted
+    there. This is better, not exact — no rule-based counter is — which is why
+    placement-risk is an ADVISORY finding and not a mechanical one.
+    """
     w = re.sub(r"[^a-z]", "", word.lower())
     if not w:
         return 0
-    groups = VOWEL_GROUP.findall(w)
-    n = len(groups)
-    if w.endswith("e") and n > 1 and not w.endswith(("le", "ee", "ye")):
+    n = len(VOWEL_GROUP.findall(w))
+    # A run of two vowels is one nucleus by default; split the ones that are two.
+    for pair in DIPHTHONG_SPLITS:
+        if pair not in DIPHTHONG_JOINS:
+            n += w.count(pair)
+    # Silent terminal e, but not in -le/-ee/-ye or a one-syllable word.
+    if w.endswith("e") and n > 1 and not w.endswith(("le", "ee", "ye", "ce", "ge")):
         n -= 1
     return max(1, n)
 
 
 def _norm(text: str) -> str:
     return " ".join(re.findall(r"[a-z0-9']+", (text or "").lower()))
+
+
+def _contains_phrase(haystack: str, needle: str) -> bool:
+    """Word-boundary containment on normalised text.
+
+    Plain `in` matched substrings, so a citable MECHANICAL rule was wrong in both
+    directions: "the fire" matched inside "the fireworks", and a burned phrase
+    could be missed or invented depending on neighbouring words. A rule the tool
+    cites by name has to be right.
+    """
+    if not needle:
+        return False
+    return re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +174,7 @@ def check_burned(song: lyrics_mod.Song, retired: dict) -> list[Finding]:
     body = _norm(song.plain_text())
 
     for phrase in retired.get("burned") or []:
-        if _norm(phrase) and _norm(phrase) in body:
+        if _contains_phrase(body, _norm(phrase)):
             out.append(
                 Finding("mechanical", "burned-phrase",
                         "Phrase is on the burned list.", quote=str(phrase))
@@ -152,7 +185,7 @@ def check_burned(song: lyrics_mod.Song, retired: dict) -> list[Finding]:
         phrase = _norm(entry.get("phrase", ""))
         if not phrase or phrase in canonical:
             continue
-        if phrase in body:
+        if _contains_phrase(body, phrase):
             out.append(
                 Finding("advisory", "spent-phrase-untriaged",
                         "Phrase already appears elsewhere in the catalogue and has "
@@ -183,7 +216,7 @@ def check_anchors(song: lyrics_mod.Song, spec: dict, suite: str | None) -> list[
     if not anchors:
         return []
     body = _norm(song.plain_text())
-    hits = [a for a in anchors if _norm(a) in body]
+    hits = [a for a in anchors if _contains_phrase(body, _norm(a))]
     if hits:
         return []
     return [
@@ -353,6 +386,24 @@ def run(
 ) -> Review:
     song = lyrics_mod.parse(lyric_text, source="review")
     song = song[0] if song else lyrics_mod.Song(title="untitled")
+
+    # A plain lyric file with no bracketed cues parses to zero sections, so every
+    # check below examined an empty corpus and the review came back clean. "I
+    # found nothing" and "there is nothing to look at" are different results, and
+    # reporting the second as the first is the exact failure this tool exists to
+    # correct.
+    if not song.lyric_sections:
+        rv = Review(band=band, track=track, suite=None, stance=None, bpm=None)
+        rv.findings.append(Finding(
+            "mechanical", "unparseable",
+            "No bracketed section cues found, so nothing was reviewed. Every check "
+            "below would examine an empty document. Add pipe-stacked cues, or pass "
+            "a sheet rather than a bare lyric dump — a clean result here would be "
+            "meaningless.",
+        ))
+        rv.stats = {"sections": 0, "sung_words": 0, "mechanical": 1, "advisory": 0,
+                    "reviewed": False}
+        return rv
 
     suite = stance = era = None
     bpm = None
