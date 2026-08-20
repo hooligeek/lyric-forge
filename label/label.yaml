@@ -1,0 +1,70 @@
+---
+# YOUR LABEL. Edit this file first; nothing else works until it describes you.
+#
+# `framework/` is generic and should not be edited to make your label work — if
+# you find yourself changing it to accommodate your own content, that is a bug in
+# the framework and worth reporting.
+
+label:
+  id: MY_LABEL
+  name: My Label
+  tagline: A one-line description
+  axiom: >-
+    The sentence your whole catalogue is arguing for. It may recur deliberately in
+    lyrics; everything else shared between two acts is the roster collapsing into
+    one voice.
+
+  # Set to `five-facets-one-biography` if your acts are facets of one person
+  # rather than unrelated characters. That changes what the tool checks: shared
+  # phrasing across acts becomes a defect, and `substrate.md` becomes the spine.
+  roster_premise: independent-acts
+
+# Where masters and cover art live. Repo-relative, absolute, or ~-relative.
+# In-tree keeps them versioned alongside the measurements that describe them.
+audio_root: label/audio
+artwork_root: label/artwork
+
+# Phrases that are SUPPOSED to cross act boundaries — your axiom, a slogan.
+# Everything else shared between two acts is reported as convergence.
+canonical_phrases: []
+
+# Which era new work belongs to. Rename freely; the framework reads this rather
+# than hardcoding a name.
+current_era: v1
+
+# Era tagging exists so a catalogue that predates your standards is not retrofitted
+# to them. Work imported from before you had a matrix is evidence, not a
+# compliance failure — and its repetitions are what the burned lists get mined
+# from. Keep `legacy` if you are importing anything.
+eras:
+  legacy:
+    label: Pre-Standard
+    description: >
+      Written before the standards existed. Gets lyric sheets and glitch logs,
+      but is exempt from the matrix, stance, lexicon and variety gates.
+    exempt_gates: [matrix, stance, lexicon, variety]
+  v1:
+    label: Current
+    description: Written under the full system. Subject to every gate.
+    exempt_gates: []
+
+# Banner text your source documents use, which the lyric importer should treat as
+# furniture rather than lyrics. Label-specific by nature.
+import:
+  furniture_markers: []
+
+# One entry per act. `prefix` is the track-id prefix (RF-001, RF-002...).
+# The slug is the single addressing key: it locates the audio, the artwork, the
+# lyrics and the ledger entry.
+#
+#   label/audio/<band-slug>/<track-slug>.mp3
+#   label/artwork/songs/<track-slug>.jpeg
+#   label/bands/<band-slug>/lyrics/<track-slug>.md
+#
+# Derive an act rather than writing one by hand:
+#   forge infer --id derive-band --vision "..."
+bands: {}
+  # my-first-act: { prefix: MFA }
+
+# Audio present on disk that is deliberately not part of the catalogue.
+excluded_audio: []

@@ -157,7 +157,7 @@ documentation was generated from the ledger it describes.
 
 | Fork | Label | Acts | Tracks | Certified |
 | --- | --- | --- | --- | --- |
-| [`vector-soul`](../../tree/vector-soul) | Vector Soul Records | 5 | 21 | ✅ 9/9 |
+| `vector-soul-label` | Vector Soul Records | 5 | 21 | ✅ 9/9 |
 
 ### What certification checks
 
@@ -188,6 +188,11 @@ are demonstrably the draft rather than the take and the real lyrics no longer
 exist. Requiring recovery would make certification impossible for honest reasons;
 passing them silently would make it meaningless. So the acknowledgement carries a
 reason and appears in the catalogue, where anyone can read it.
+
+The reference fork is private — it holds 110 MB of masters and personal source
+material — so it is listed rather than linked. Certification is verifiable from
+the `certification.json` artefact its CI uploads, which is the evidence any fork
+should be judged on.
 
 ### Submitting a fork
 
