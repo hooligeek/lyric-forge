@@ -180,6 +180,79 @@ set — perceptually significant overdrive also shows up as lyric divergence or
 dropout. Paying for lossless exports buys forensic-grade clipping evidence and
 nothing else.
 
+## The matrix: two axes, not one
+
+A lyrical matrix constrains *vocabulary*. It does not constrain *syntax*, and
+syntax is where sameness actually lives. Screen-Lit Panic has four thematic
+suites and six songs, and all six are the same speech act: second-person
+accusation. The topic rotates; the posture never does. Silicon Kings opens three
+separate bridges on "A deep lack of ___" — not a vocabulary problem, and no
+lexicon check will ever catch it.
+
+So every song draws two independent things:
+
+- a **suite** — what it is about (`label/bands/<slug>/band.yaml`)
+- a **stance** — how it is spoken (`label/stances.yaml`)
+
+Eleven stances against four or five suites gives 44+ distinct premises per band
+instead of four, and the stance is what changes the sentences rather than just
+the nouns. Measured baseline across the existing catalogue: **65% of classified
+tracks are one stance, and 7 of 11 stances have never been used at all.**
+
+### Narrator dossiers
+
+Each band carries a `dossier.md` fixing who speaks, from where, at what hour, to
+whom, what they want, and what they cannot admit. A fixed speaker generates
+consistent diction automatically — it does more for voice consistency than any
+word list, because word choice follows from position.
+
+The acts are differentiated by **room, hour, and addressee**, which are concrete
+and checkable, rather than by adjectives. Four of the five are alone; only one
+has a crowd in the room, and that is why only one can be patient.
+
+### The shared substrate
+
+`label/substrate.md` holds the biography every act draws on. When the roster
+premise is "several facets of one person," consistency stops depending on
+remembering invented lore and starts depending on one set of real facts read
+several ways — which is far more robust, and lets one event be written five times
+without repetition.
+
+It also records what each facet *cannot admit*, which turns out to be the most
+valuable unwritten material on a roster: the only things the speaker is actually
+hiding.
+
+### Register: aiming the glitch
+
+Each `band.yaml` carries a measured `register` block — the tempo ceiling and the
+lexical classes that break this particular voice, with the evidence. Screen-Lit
+Panic froze outright at 200 BPM and slurs consonant clusters at 170. Silicon
+Kings has no tempo failures at all but chokes reliably on Latinate compounds
+("anthropogenic drought" became "the edge of Virginia").
+
+That converts the Glitch Axiom from post-hoc rationalisation into a compositional
+tool: if you know where the voice breaks, hard words become *placeable*. Put the
+compound where the choke is the point. And it surfaces opportunities that were
+invisible before — Roots Futuria at 85 BPM is the most stable voice on the
+roster and could deliver, cleanly, the exact academic vocabulary that destroys
+Silicon Kings.
+
+## The variety gate
+
+```bash
+python3 -m framework.forge variety
+```
+
+The predecessor audit had six gates and all six measured *format* — seal present,
+cues pipe-stacked, ledger tidy. Format compliance is trivially satisfiable, which
+is why it returned PASS on a catalogue where four tracks shared a BPM, a key, and
+a byte-identical sonic blueprint. A label whose declared enemy is homogenisation
+had an auditor that could not detect homogenisation.
+
+This measures distribution instead: stance, suite, tempo, key, and style-prompt
+concentration. Era-aware — pre-standard tracks are counted for evidence but never
+failed.
+
 ## Era tagging
 
 A label whose founding axiom is *leave the glitch in the mix* does not sanitise

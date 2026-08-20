@@ -19,6 +19,7 @@ from . import importer as importer_mod
 from . import ledger as ledger_mod
 from . import mine as mine_mod
 from . import reconcile as reconcile_mod
+from . import variety as variety_mod
 from .config import slugify
 
 
@@ -198,6 +199,15 @@ def cmd_mine(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_variety(args: argparse.Namespace) -> int:
+    cfg = config_mod.load()
+    results, summary = variety_mod.run(cfg)
+    print(variety_mod.format_report(results, summary))
+    if args.strict and any(bv.warnings for bv in results):
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="forge", description="lyric-forge label toolchain")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -219,6 +229,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=25, help="max rows per section")
     p.add_argument("--write", action="store_true", help="write retired.yaml triage file")
     p.set_defaults(func=cmd_mine)
+
+    p = sub.add_parser("variety", help="stance/suite/tempo distribution across the catalogue")
+    p.add_argument("--strict", action="store_true", help="exit 1 on any warning")
+    p.set_defaults(func=cmd_variety)
 
     p = sub.add_parser("relink", help="wire hand-authored lyric sheets into the ledger")
     p.set_defaults(func=cmd_relink)
