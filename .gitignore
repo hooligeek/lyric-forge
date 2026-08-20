@@ -1,0 +1,23 @@
+# Audio is never committed. The mp3s from Suno are the archival source of truth
+# and live outside the repo (see label.yaml: audio_root). Decoded PCM is a cache.
+*.mp3
+*.wav
+*.mp4
+*.flac
+
+# Analyzer cache: deterministic decodes + model outputs. Reproducible, so disposable.
+.cache/
+*.Zone.Identifier
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
