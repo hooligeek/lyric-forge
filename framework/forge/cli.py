@@ -13,10 +13,12 @@ import sys
 
 from pathlib import Path
 
+from . import analyze as analyze_mod
 from . import audio as audio_mod
 from . import config as config_mod
 from . import importer as importer_mod
 from . import ledger as ledger_mod
+from . import lyrics as lyrics_mod
 from . import mine as mine_mod
 from . import reconcile as reconcile_mod
 from . import variety as variety_mod
@@ -208,6 +210,87 @@ def cmd_variety(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_analyze(args: argparse.Namespace) -> int:
+    import yaml
+
+    cfg = config_mod.load()
+    targets = [args.band] if args.band else list(cfg.bands)
+    for slug in targets:
+        if slug not in cfg.bands:
+            print(f"unknown band: {slug} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+            return 2
+
+    for slug in targets:
+        band = cfg.bands[slug]
+        tracks = ledger_mod.load_band_tracks(band)
+        print("=" * 78)
+        print(f"ANALYSE  {slug}")
+        print("=" * 78)
+        cand_doc: dict = {"band": slug, "tracks": {}}
+        changed = False
+
+        # Band nominal tempo as a seeding prior for tracks with no declared BPM.
+        fallback_bpm = None
+        bf = band.band_file
+        if bf.exists():
+            spec = yaml.safe_load(bf.read_text(encoding="utf-8")) or {}
+            fallback_bpm = (spec.get("sonic") or {}).get("bpm_nominal")
+
+        for t in tracks:
+            tslug = t.get("slug")
+            if args.track and tslug != args.track:
+                continue
+            audio_rel = t.get("audio")
+            if not audio_rel:
+                print(f"-- {t.get('id')} {t.get('title')}: no audio", file=sys.stderr)
+                continue
+            src = cfg.audio_root / audio_rel
+
+            song = None
+            sheet = t.get("lyric_sheet")
+            if sheet:
+                sp = config_mod.REPO_ROOT / sheet
+                if sp.exists():
+                    song = lyrics_mod.load_sheet(sp)
+
+            try:
+                ta = analyze_mod.analyze_track(
+                    src, slug, tslug, t, song,
+                    model_name=args.model, do_asr=not args.no_asr,
+                    fallback_bpm=fallback_bpm,
+                )
+            except Exception as exc:
+                print(f"-- {t.get('id')} {t.get('title')}: FAILED {exc}", file=sys.stderr)
+                continue
+
+            print(analyze_mod.format_track(ta, limit=args.limit))
+            print()
+
+            if args.write:
+                t["analysis"] = ta.to_dict()["metrics"]
+                cand_doc["tracks"][tslug] = [c.to_dict() for c in ta.candidates]
+                changed = True
+
+        if args.write and changed:
+            ledger_mod.save_band_tracks(band, tracks)
+            dest = band.dir / "glitch-candidates.yaml"
+            header = "\n".join([
+                "---",
+                f"# {slug} — measured glitch candidates from `forge analyze`.",
+                "#",
+                "# CANDIDATES, not verdicts. The Glitch Axiom is a human judgement about",
+                "# which failures are badges of honour; promote entries into the track's",
+                "# glitch_log in tracks.yaml by hand, naming them under the band protocol.",
+                "",
+            ])
+            dest.write_text(
+                header + yaml.safe_dump(cand_doc, sort_keys=False, allow_unicode=True, width=100),
+                encoding="utf-8",
+            )
+            print(f"wrote {dest.relative_to(config_mod.REPO_ROOT).as_posix()}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="forge", description="lyric-forge label toolchain")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -229,6 +312,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=25, help="max rows per section")
     p.add_argument("--write", action="store_true", help="write retired.yaml triage file")
     p.set_defaults(func=cmd_mine)
+
+    p = sub.add_parser("analyze", help="measure audio: dsp, tempo, key, transcript diff")
+    p.add_argument("--band", help="band slug (default: all)")
+    p.add_argument("--track", help="single track slug")
+    p.add_argument("--model", default="large-v3", help="whisper model (default: large-v3)")
+    p.add_argument("--no-asr", action="store_true", help="skip transcription and diff")
+    p.add_argument("--limit", type=int, default=8, help="candidates shown per track")
+    p.add_argument("--write", action="store_true", help="write metrics + candidate files")
+    p.set_defaults(func=cmd_analyze)
 
     p = sub.add_parser("variety", help="stance/suite/tempo distribution across the catalogue")
     p.add_argument("--strict", action="store_true", help="exit 1 on any warning")

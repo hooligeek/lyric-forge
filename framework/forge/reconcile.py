@@ -58,8 +58,35 @@ class Report:
         return out
 
 
+def _check_yaml_validity(rep: Report) -> None:
+    """Every YAML file under label/ must parse.
+
+    Added after two hand-authored band.yaml files broke on the same mistake:
+    a list item containing an unquoted colon (`- Declare \\`voice: human\\``) or
+    opening with a quote and continuing in plain text. Both produce a scanner
+    error a long way from the real line, and both silently disabled the band's
+    whole definition until something happened to read it.
+    """
+    import yaml
+
+    for path in sorted(config_mod.LABEL_DIR.rglob("*.yaml")):
+        try:
+            yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            rel = path.relative_to(config_mod.REPO_ROOT).as_posix()
+            mark = getattr(exc, "problem_mark", None)
+            where = f" at line {mark.line + 1}" if mark else ""
+            rep.add(
+                "INVALID_YAML",
+                path.parent.name,
+                rel,
+                f"{getattr(exc, 'problem', 'parse error')}{where}",
+            )
+
+
 def run(cfg: Config, probe_audio: bool = True) -> Report:
     rep = Report()
+    _check_yaml_validity(rep)
     excluded = cfg.excluded_audio
     total_tracks = 0
     total_audio = 0
