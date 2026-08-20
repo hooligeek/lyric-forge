@@ -1,6 +1,6 @@
 # Convenience targets. Everything here is a one-liner you could type yourself.
 
-.PHONY: hooks install gates docs certify
+.PHONY: hooks install test gates docs certify
 
 hooks:            ## enable the client-side pre-push protection
 	git config core.hooksPath .githooks
@@ -10,10 +10,14 @@ hooks:            ## enable the client-side pre-push protection
 install:          ## venv + editable install with analysis extras
 	python3 -m venv .venv
 	./.venv/bin/pip install -q --upgrade pip
-	./.venv/bin/pip install -q -e '.[analysis]'
+	./.venv/bin/pip install -q -e '.[analysis,dev]'
 	@echo "installed. `forge` is at ./.venv/bin/forge"
 
+test:             ## unit tests — no label, no audio, no model needed
+	./.venv/bin/pytest
+
 gates:            ## everything CI runs
+	./.venv/bin/pytest
 	./.venv/bin/forge reconcile --strict
 	./.venv/bin/forge prompt lint
 

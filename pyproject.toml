@@ -14,6 +14,11 @@ dependencies = ["pyyaml>=6"]
 # every other command runs on the stdlib plus pyyaml.
 analysis = ["librosa>=0.10", "soundfile>=0.12", "faster-whisper>=1.0", "numpy", "scipy"]
 
+# The suite deliberately needs nothing but pytest. Every test runs against plain
+# dicts and strings, so it does not want a label, an audio file, a model, or the
+# analysis extras — which is what makes it cheap enough to run on every push.
+dev = ["pytest>=8"]
+
 [project.scripts]
 # The documentation described a `forge` command throughout, and there was none:
 # `argparse(prog="forge")` made `--help` corroborate the illusion, so following
@@ -31,3 +36,9 @@ packages = ["framework", "framework.forge", "framework.tools"]
 # (`_actions`, `_choices_actions`) to generate the command reference, and those
 # names are not part of the public API — the minimum version is a real
 # constraint, not a default.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -q because a green run should say almost nothing; --strict-markers so a typo in
+# a marker name fails instead of silently skipping the test it was attached to.
+addopts = "-q --strict-markers"

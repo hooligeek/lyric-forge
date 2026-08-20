@@ -28,7 +28,15 @@ jobs:
       - name: install
         run: |
           python -m pip install --upgrade pip -q
-          pip install -e . -q
+          pip install -e '.[dev]' -q
+
+      # --- unit tests -----------------------------------------------------
+      #
+      # First, because they are the cheapest signal here by a wide margin: no
+      # label, no audio, no model, no network, under a second. If the lyric parser
+      # or the stage machine is broken there is no point measuring anything else.
+      - name: unit tests
+        run: pytest
 
       # --- the gates that always apply -----------------------------------
       - name: reconcile

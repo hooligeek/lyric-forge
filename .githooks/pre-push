@@ -89,6 +89,23 @@ if [ -x ./.venv/bin/forge ]; then FORGE="./.venv/bin/forge"
 elif command -v forge >/dev/null 2>&1; then FORGE="forge"
 fi
 
+# --- unit tests -----------------------------------------------------------
+# Cheapest check in the project: no label, no audio, no model, under a second. It
+# runs before the slower gates so a broken parser fails fast.
+PYTEST=""
+if [ -x ./.venv/bin/pytest ]; then PYTEST="./.venv/bin/pytest"
+elif command -v pytest >/dev/null 2>&1; then PYTEST="pytest"
+fi
+
+if [ -n "$PYTEST" ]; then
+    if ! $PYTEST >/dev/null 2>&1; then
+        fail "unit tests are failing."
+        $PYTEST 2>&1 | tail -12 >&2
+    fi
+else
+    say "note: pytest not installed here, skipping the unit tests."
+fi
+
 if [ -n "$FORGE" ]; then
     if ! $FORGE reconcile --strict >/dev/null 2>&1; then
         fail "reconcile --strict reports defects."
