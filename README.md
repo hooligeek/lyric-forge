@@ -1,3 +1,5 @@
+<img src="docs/assets/banner.jpeg" alt="lyric-forge — spark to certified catalogue, measurement instead of assumption. The nine pipeline stages from spark to mastered, six gated by a human and three by the tool." width="100%">
+
 # lyric-forge
 
 Run a virtual record label as a system that can be checked.
@@ -41,6 +43,13 @@ a model.
 | suite anchor missing | does a line contradict the shared biography |
 | tempo above the measured ceiling | is the addressee specific enough |
 | phrase shared with another act | is it any good |
+
+<img src="docs/assets/measurement.jpeg" alt="A transcript aligned against an audio master, with one word flagged where the sung line diverges from the written sheet." width="100%">
+
+What measuring looks like in practice: the transcript aligned against the master,
+with one word flagged where what was sung diverges from what was written. The tool
+finds the timecode and reports the divergence. Whether that failure is a defect to
+re-render or a feature to keep is the label's call, not the tool's.
 
 ---
 
