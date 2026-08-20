@@ -225,7 +225,9 @@ def build(
         "label_axiom": label.get("axiom", ""),
         "substrate": substrate(),
         "tag_formula": TAG_FORMULA,
-        "spark": spark.strip(),
+        # Sparks are stored with frontmatter for their id; the model wants the
+        # note, not the bookkeeping.
+        "spark": _strip_frontmatter(spark.strip()),
         "lyrics": lyrics.strip(),
         "extra_context": extra_context.strip(),
         "vision": vision.strip(),
@@ -242,12 +244,28 @@ def build(
     bblock = spec.get("band") or {}
     sonic = spec.get("sonic") or {}
 
-    # Anything not specified comes from the computed proposal, so the default
-    # brief is the one the catalogue is short of.
+    # Precedence: explicit argument, then the track's own confirmed brief, then
+    # the computed proposal.
+    #
+    # The track must outrank the proposal. An operator who confirmed a brief with
+    # a different tempo has made a decision, and generating against the original
+    # proposal instead would make confirmation decorative — the gate would record
+    # assent and then be ignored.
     proposal = pipeline_mod.propose(cfg, band)
-    suite = suite or proposal.suite
-    stance = stance or proposal.stance
-    bpm = bpm or proposal.bpm
+    confirmed: dict[str, Any] = {}
+    if track:
+        tracks = ledger_mod.load_band_tracks(cfg.bands[band])
+        row = next((t for t in tracks if t.get("slug") == track), None)
+        if row and ledger_mod.get_nested(row, "provenance.brief_confirmed"):
+            confirmed = {
+                "suite": ledger_mod.get_nested(row, "matrix.suite"),
+                "stance": ledger_mod.get_nested(row, "matrix.stance"),
+                "bpm": ledger_mod.get_nested(row, "suno.declared_bpm"),
+            }
+
+    suite = suite or confirmed.get("suite") or proposal.suite
+    stance = stance or confirmed.get("stance") or proposal.stance
+    bpm = bpm or confirmed.get("bpm") or proposal.bpm
 
     ctx.update(
         {
@@ -262,7 +280,11 @@ def build(
             "style_prompt": str(sonic.get("style_prompt", "")).strip(),
             "vocal": str(sonic.get("vocal", "")).strip(),
             "bpm_target": bpm,
-            "bpm_reason": proposal.bpm_reason,
+            "bpm_reason": (
+                "set on the confirmed brief for this track"
+                if confirmed.get("bpm") == bpm
+                else proposal.bpm_reason
+            ),
             "register": _register_block(spec),
             "glitch_protocol": (spec.get("glitch_protocol") or {}).get("name", ""),
             "glitch_reading": str(

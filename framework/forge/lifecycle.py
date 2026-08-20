@@ -61,7 +61,12 @@ STAGES: list[Stage] = [
         order=1,
         gate=HUMAN,
         summary="Band, suite, stance, constraints and tempo target agreed.",
-        requires=["provenance.brief", "matrix.suite", "matrix.stance"],
+        # brief_confirmed, not just brief: the proposal is computed and written
+        # automatically, so its existence proves nothing about agreement. Only a
+        # human setting the flag distinguishes "proposed" from "agreed", and
+        # letting a generated file advance a human gate would make the gate
+        # decorative.
+        requires=["provenance.brief_confirmed", "matrix.suite", "matrix.stance"],
         asks=(
             "Confirm or change the proposed band, suite, stance and tempo. The "
             "proposal is computed from what the catalogue is short of, so "
@@ -140,6 +145,12 @@ SEQUENCE = [s for s in sorted(STAGES, key=lambda s: s.order) if s.order >= 0]
 
 def _has(track: dict, path: str) -> bool:
     value = ledger_mod.get_nested(track, path)
+    # `False is not in (None, "", [], {})`, so an unset boolean flag read as
+    # present and advanced the gate it was supposed to hold. brief_confirmed:
+    # false meant "proposed, not agreed" and the tool reported the brief as
+    # agreed. Falsy is absent.
+    if value is False:
+        return False
     return value not in (None, "", [], {})
 
 

@@ -92,6 +92,85 @@ def cmd_stages(args: argparse.Namespace) -> int:
     return _emit(args, data, fmt)
 
 
+def cmd_spark(args: argparse.Namespace) -> int:
+    from . import spark as spark_mod
+
+    cfg = config_mod.load()
+
+    if args.confirm:
+        if not (args.band and args.track):
+            print("--confirm needs --band and --track", file=sys.stderr)
+            return 2
+        if args.band not in cfg.bands:
+            print(f"unknown band: {args.band}", file=sys.stderr)
+            return 2
+        try:
+            data = spark_mod.confirm(cfg, args.band, args.track)
+        except (ValueError, FileNotFoundError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+
+        def fmt(d: dict) -> str:
+            out = [f"Brief confirmed for {d['track_id']} ({d['track']})."]
+            out.append(
+                f"  suite {d['suite']} | stance {d['stance']} | {d['bpm']} BPM"
+            )
+            if d["changed"]:
+                out.append("  operator changes: " + "; ".join(d["changed"]))
+            else:
+                out.append("  proposal accepted unchanged")
+            out.append("  stage: brief. Next: generate the draft.")
+            return "\n".join(out)
+
+        return _emit(args, data, fmt)
+
+    # --- capture -----------------------------------------------------------
+    text = ""
+    if args.file:
+        fp = Path(args.file).expanduser()
+        if not fp.exists():
+            print(f"no such file: {fp}", file=sys.stderr)
+            return 2
+        text = fp.read_text(encoding="utf-8")
+    elif args.text:
+        text = args.text
+    elif not sys.stdin.isatty():
+        text = sys.stdin.read()
+
+    if not text.strip():
+        print(
+            "nothing to capture. Provide --text, --file, or pipe on stdin.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if not args.band:
+        # Not an error — show the comparison so the choice is informed rather
+        # than arbitrary. This is the same elicitation principle as `next`.
+        data = pipeline_mod.next_actions(cfg, band=None)
+        print(
+            "No --band given. Nothing captured yet — pick a band, informed by "
+            "what each is short of:\n",
+            file=sys.stderr,
+        )
+        print(pipeline_mod.format_next(data))
+        return 2
+
+    if args.band not in cfg.bands:
+        print(f"unknown band: {args.band} (known: {', '.join(cfg.bands)})", file=sys.stderr)
+        return 2
+
+    try:
+        result = spark_mod.create(
+            cfg, text, args.band, title=args.title, spark_id=args.id
+        )
+    except (FileExistsError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    return _emit(args, result.to_dict(), lambda d: spark_mod.format_created(result))
+
+
 def cmd_adjudicate(args: argparse.Namespace) -> int:
     from . import adjudicate as adj_mod
 
@@ -293,7 +372,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     cfg = config_mod.load()
     rep = reconcile_mod.run(cfg, probe_audio=not args.fast, check_hashes=not args.no_hash)
     print(reconcile_mod.format_report(rep))
-    if args.strict and rep.findings:
+    if args.strict and rep.defects:
         return 1
     return 0
 
@@ -573,6 +652,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stages", help="describe the lifecycle and its gates")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_stages)
+
+    p = sub.add_parser("spark", help="capture raw input and open a tracked song")
+    p.add_argument("--text", help="the spark, inline")
+    p.add_argument("--file", help="the spark, from a file")
+    p.add_argument("--band", help="band slug (omit to see a comparison first)")
+    p.add_argument("--title", help="provisional title, if you have one")
+    p.add_argument("--id", help="override the generated spark id")
+    p.add_argument("--confirm", action="store_true", help="confirm a proposed brief")
+    p.add_argument("--track", help="track slug, for --confirm")
+    p.add_argument("--json", action="store_true", help="structured output")
+    p.set_defaults(func=cmd_spark)
 
     p = sub.add_parser("adjudicate", help="judge measured glitch candidates")
     p.add_argument("--band", help="band slug (default: all)")

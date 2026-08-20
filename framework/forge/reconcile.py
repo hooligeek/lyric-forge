@@ -31,6 +31,10 @@ ALWAYS_WANTED = [
     ("lyric_sheet", "lyric sheet"),
 ]
 
+# Stages before a render exists. Tracks here legitimately have no audio, cover or
+# finished lyrics, so asset checks are skipped rather than reported as gaps.
+PRE_RENDER_STAGES = {"spark", "brief", "draft", "review", "sheet"}
+
 
 @dataclass
 class Finding:
@@ -43,10 +47,20 @@ class Finding:
         return f"[{self.kind}] {self.band}/{self.subject}: {self.detail}"
 
 
+# Reported for visibility but not a defect: a song still being written has no
+# audio yet, and `--strict` failing on that would make the gate unusable in CI
+# for exactly the work the tool exists to support.
+INFORMATIONAL = {"IN_PROGRESS"}
+
+
 @dataclass
 class Report:
     findings: list[Finding] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
+
+    @property
+    def defects(self) -> list[Finding]:
+        return [f for f in self.findings if f.kind not in INFORMATIONAL]
 
     def add(self, kind: str, band: str, subject: str, detail: str) -> None:
         self.findings.append(Finding(kind, band, subject, detail))
@@ -127,6 +141,20 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
         for t in tracks:
             tslug = t.get("slug") or slugify(t.get("title", ""))
             subject = t.get("title") or tslug
+
+            # A song that has not been rendered yet has no audio, no cover and
+            # possibly no lyrics, and that is correct rather than a finding.
+            # Demanding assets from a track at the spark stage would make the
+            # tool unusable for new work — the thing it exists to support.
+            stage = ledger_mod.get_nested(t, "lifecycle.stage") or "imported"
+            if stage in PRE_RENDER_STAGES:
+                rep.add(
+                    "IN_PROGRESS",
+                    slug,
+                    subject,
+                    f"at stage '{stage}' — asset checks skipped until rendered",
+                )
+                continue
 
             if tslug not in audio_by_slug:
                 rep.add("PHANTOM_TRACK", slug, subject, "ledger entry with no audio file")
