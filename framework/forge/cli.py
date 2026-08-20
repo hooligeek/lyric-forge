@@ -211,9 +211,25 @@ def cmd_variety(args: argparse.Namespace) -> int:
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
+    """Analysis is slow enough (minutes per track) that progress must be
+    observable while it runs. Everything is echoed to .cache/analyze.log,
+    line-buffered and unbuffered on stdout, so `tail -f` works and a piped
+    stdout cannot swallow it."""
+    import time
+
     import yaml
 
     cfg = config_mod.load()
+    log_path = config_mod.CACHE_DIR / "analyze.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log = log_path.open("a", encoding="utf-8", buffering=1)
+
+    def say(msg: str = "") -> None:
+        print(msg, flush=True)
+        log.write(f"{msg}\n")
+
+    say("")
+    say(f"### analyze started {time.strftime('%Y-%m-%d %H:%M:%S')}  model={args.model}")
     targets = [args.band] if args.band else list(cfg.bands)
     for slug in targets:
         if slug not in cfg.bands:
@@ -223,9 +239,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     for slug in targets:
         band = cfg.bands[slug]
         tracks = ledger_mod.load_band_tracks(band)
-        print("=" * 78)
-        print(f"ANALYSE  {slug}")
-        print("=" * 78)
+        say("=" * 78)
+        say(f"ANALYSE  {slug}")
+        say("=" * 78)
         cand_doc: dict = {"band": slug, "tracks": {}}
         changed = False
 
@@ -253,6 +269,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 if sp.exists():
                     song = lyrics_mod.load_sheet(sp)
 
+            say(f"-> [{time.strftime('%H:%M:%S')}] {t.get('id')} {t.get('title')} "
+                f"({t.get('duration_s')}s) analysing...")
+            t0 = time.time()
             try:
                 ta = analyze_mod.analyze_track(
                     src, slug, tslug, t, song,
@@ -263,8 +282,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 print(f"-- {t.get('id')} {t.get('title')}: FAILED {exc}", file=sys.stderr)
                 continue
 
-            print(analyze_mod.format_track(ta, limit=args.limit))
-            print()
+            say(analyze_mod.format_track(ta, limit=args.limit))
+            say(f"   [{time.strftime('%H:%M:%S')}] done in {time.time() - t0:.0f}s")
+            say()
 
             if args.write:
                 t["analysis"] = ta.to_dict()["metrics"]
@@ -287,7 +307,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 header + yaml.safe_dump(cand_doc, sort_keys=False, allow_unicode=True, width=100),
                 encoding="utf-8",
             )
-            print(f"wrote {dest.relative_to(config_mod.REPO_ROOT).as_posix()}")
+            say(f"wrote {dest.relative_to(config_mod.REPO_ROOT).as_posix()}")
+    say(f"### analyze finished {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    log.close()
     return 0
 
 

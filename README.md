@@ -237,6 +237,61 @@ invisible before — Roots Futuria at 85 BPM is the most stable voice on the
 roster and could deliver, cleanly, the exact academic vocabulary that destroys
 Silicon Kings.
 
+## The analyzer
+
+```bash
+python3 -m framework.forge analyze --band warhead --write
+tail -f .cache/analyze.log
+```
+
+Four passes: DSP (clipping, loudness, dropouts), rhythm (tempo + local drift),
+tonal (key), and ASR (faster-whisper `large-v3`, word-aligned diff against the
+lyric sheet). Requires the venv — see `pyproject`/`.venv`. CUDA is used when
+available; the NVIDIA runtime libraries are preloaded by absolute path because
+CTranslate2 links cuBLAS at *inference* time, so a model will build happily on
+CUDA and then die mid-decode with `libcublas.so.12 not found`.
+
+Everything emits **candidates, never verdicts**, into
+`label/bands/<slug>/glitch-candidates.yaml`. The Glitch Axiom is a human
+judgement about which failures are badges of honour; automating it would gut the
+idea. Promote entries into a track's `glitch_log` by hand.
+
+### What it will and will not tell you
+
+Four things it measures reliably:
+
+- **Tempo**, when seeded. Unseeded beat tracking is useless on this material —
+  Confident Ignorance at a declared 170 tracked to 112, neither 170 nor its half.
+  Seeding from the track's declared BPM (or the band nominal) fixes it. When the
+  grid does not lock, drift candidates are **suppressed entirely** rather than
+  reported, because on a mis-locked grid every inter-beat interval looks like
+  drift and reporting that would recreate the invented-timecode problem this
+  module exists to eliminate.
+- **Transcript divergence with real timecodes**, which is the point.
+- **Clipping and dropouts**, with an mp3 caveat on the former.
+- **Whether a sheet matches its master**, which turned out to matter more than
+  glitch detection.
+
+One thing it does **not** measure reliably: **key**. The chroma detector agreed
+with the declared key on 1 of the 4 Roots Futuria tracks, despite all four
+sharing one style prompt and one declared key — it most likely locks to the
+dominant rather than the tonic on a bass-heavy mix. Treat `detected_key` as
+unusable evidence until it is replaced with something that separates the bassline.
+
+### Two failure modes, not one
+
+Low word accuracy has two completely different causes, and conflating them would
+make the tool report correct sheets as wrong purely because a vocal is fast.
+Transcript **coverage** discriminates:
+
+| | accuracy | coverage | verdict |
+| --- | --- | --- | --- |
+| Lazy | 0.12 | 0.59 | `asr-unreliable` — heard 130 words of 221 and returned word salad |
+| Deterministic Drift | 0.36 | 1.18 | `sheet-mismatch` — heard plenty, heard coherent rhyming couplets absent from the sheet |
+
+Coverage only *proxies* coherence, so results near the threshold carry a
+`-borderline` suffix and need an ear rather than a number.
+
 ## The variety gate
 
 ```bash
