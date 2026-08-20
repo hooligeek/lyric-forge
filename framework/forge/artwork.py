@@ -177,14 +177,21 @@ def index_songs(cfg: Config, with_palette: bool = True) -> dict[str, Art]:
 
 
 def index_albums(cfg: Config, with_palette: bool = True) -> list[Art]:
+    """Album covers are nested one directory per band —
+    albums/<band-slug>/<project-slug>.jpeg — so this recurses. A flat scan here
+    silently reported zero album covers after the naming migration."""
     albums = cfg.artwork_root / "albums"
     if not albums.exists():
         return []
-    return [
-        load_art(p, with_palette=with_palette)
-        for p in sorted(albums.iterdir())
-        if p.suffix.lower() in (".jpeg", ".jpg", ".png", ".webp")
-    ]
+    out: list[Art] = []
+    for p in sorted(albums.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in (".jpeg", ".jpg", ".png", ".webp"):
+            continue
+        art = load_art(p, with_palette=with_palette)
+        # Title as "<band-slug>/<project-slug>" so the report is unambiguous.
+        art.title = f"{p.parent.name}/{p.stem}"
+        out.append(art)
+    return out
 
 
 def hamming(a: int, b: int) -> int:

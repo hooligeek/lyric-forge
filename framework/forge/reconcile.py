@@ -143,6 +143,29 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                         f"ledger says {declared}s, audio is {actual:.0f}s",
                     )
 
+            # Naming convention: one slug addresses every asset a track has.
+            # Assets arrive from Suno and image exports with spaces, ampersands,
+            # exclamation marks and trailing whitespace, and a name that drifts
+            # from the slug quietly breaks the addressing the whole ledger relies
+            # on — so it is checked rather than assumed.
+            expected_audio = f"{slug}/{tslug}"
+            actual_audio = t.get("audio")
+            if actual_audio and Path(actual_audio).with_suffix("").as_posix() != expected_audio:
+                rep.add(
+                    "ASSET_NAMING",
+                    slug,
+                    subject,
+                    f"audio is {actual_audio}, convention is {expected_audio}<ext>",
+                )
+            actual_art = t.get("artwork")
+            if actual_art and Path(actual_art).with_suffix("").as_posix() != f"songs/{tslug}":
+                rep.add(
+                    "ASSET_NAMING",
+                    slug,
+                    subject,
+                    f"artwork is {actual_art}, convention is songs/{tslug}<ext>",
+                )
+
             art = t.get("artwork")
             if not art:
                 rep.add("NO_ARTWORK", slug, subject, "no cover art linked")

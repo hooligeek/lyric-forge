@@ -23,8 +23,16 @@ CACHE_DIR = REPO_ROOT / ".cache"
 @dataclass(frozen=True)
 class Band:
     slug: str
-    audio_dir: str
     prefix: str
+    # Defaults to the slug. Only set this if a band's audio directory genuinely
+    # cannot be renamed — it existed here solely to accommodate directories that
+    # disagreed with their slugs (`screenlit_panic`, and a misspelled
+    # `the_skalgoritms`), and both have since been normalised.
+    audio_dir: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.audio_dir:
+            object.__setattr__(self, "audio_dir", self.slug)
 
     @property
     def dir(self) -> Path:
@@ -80,7 +88,11 @@ def load() -> Config:
     audio_root = _root(raw.get("audio_root", ""), REPO_ROOT / "label" / "audio")
     artwork_root = _root(raw.get("artwork_root", ""), audio_root / "artwork")
     bands = {
-        slug: Band(slug=slug, audio_dir=spec["audio_dir"], prefix=spec["prefix"])
+        slug: Band(
+            slug=slug,
+            prefix=spec["prefix"],
+            audio_dir=spec.get("audio_dir", ""),
+        )
         for slug, spec in raw.get("bands", {}).items()
     }
     return Config(
