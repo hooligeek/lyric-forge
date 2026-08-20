@@ -886,7 +886,15 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         say("=" * 78)
         say(f"ANALYSE  {slug}")
         say("=" * 78)
+        # Merge, never replace. A single-track run used to rewrite the whole
+        # candidates file, silently destroying every other track's measured
+        # candidates — `analyze --track X --write` wiped three tracks' worth of
+        # evidence for one track's benefit.
         cand_doc: dict = {"band": slug, "tracks": {}}
+        cand_path = band.dir / "glitch-candidates.yaml"
+        if cand_path.exists():
+            prior = yaml.safe_load(cand_path.read_text(encoding="utf-8")) or {}
+            cand_doc["tracks"] = prior.get("tracks") or {}
         changed = False
 
         # Band nominal tempo as a seeding prior for tracks with no declared BPM.
@@ -937,7 +945,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
         if args.write and changed:
             ledger_mod.save_band_tracks(band, tracks)
-            dest = band.dir / "glitch-candidates.yaml"
+            dest = cand_path
             header = "\n".join([
                 "---",
                 f"# {slug} — measured glitch candidates from `forge analyze`.",

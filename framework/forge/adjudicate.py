@@ -465,9 +465,30 @@ def apply_decisions(cfg: Config, slug: str) -> dict[str, Any]:
             continue
 
         log = list(track.get("glitch_log") or [])
+
+        # Applying twice must not double the log. Decisions are preserved across
+        # re-runs by design, so a second --apply re-offers the same keeps — and
+        # without this it appended them again, duplicating three entries on the
+        # one track that had already been adjudicated.
+        def already_logged(row: dict) -> bool:
+            anchor_key = (
+                row.get("type"),
+                row.get("timecode"),
+                row.get("expected"),
+            )
+            for existing in log:
+                a = existing.get("anchor") or {}
+                if (existing.get("type"), a.get("timecode"), a.get("phrase")) == anchor_key:
+                    return True
+            return False
+
         for r in rows:
             if r.get("decision") != "keep":
                 result["discarded"] += 1
+                continue
+            if already_logged(r):
+                result.setdefault("already_present", 0)
+                result["already_present"] += 1
                 continue
             log.append(
                 {
