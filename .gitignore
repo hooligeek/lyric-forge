@@ -1,12 +1,12 @@
-# Audio is never committed. The mp3s from Suno are the archival source of truth
-# and live outside the repo (see label.yaml: audio_root). Decoded PCM is a cache.
-*.mp3
-*.wav
-*.mp4
-*.flac
+# Masters and cover art ARE committed, under label/audio and label/artwork.
+# They had no version control and no off-machine copy anywhere else, and the
+# ledger's measurements are meaningless without the files they describe.
+# Only derived audio is excluded.
 
-# Analyzer cache: deterministic decodes + model outputs. Reproducible, so disposable.
+# Analyzer cache: deterministic PCM decodes and model output. Reproducible from
+# the committed mp3s, ~1.6 GB, so disposable and never committed.
 .cache/
+
 *.Zone.Identifier
 
 # Python

@@ -67,10 +67,18 @@ def load() -> Config:
         raise SystemExit(f"No label config at {LABEL_FILE}")
     raw = yaml.safe_load(LABEL_FILE.read_text(encoding="utf-8"))
 
-    audio_root = Path(raw["audio_root"]).expanduser()
-    artwork_root = Path(
-        raw.get("artwork_root") or (audio_root / "artwork")
-    ).expanduser()
+    # Roots may be absolute, ~-relative, or repo-relative. Repo-relative is the
+    # normal case now that the binaries live in-tree; resolving those against the
+    # CWD instead of the repo would silently break every path the moment forge is
+    # run from anywhere but the repo root.
+    def _root(value: str, default: Path) -> Path:
+        if not value:
+            return default
+        p = Path(value).expanduser()
+        return p if p.is_absolute() else (REPO_ROOT / p)
+
+    audio_root = _root(raw.get("audio_root", ""), REPO_ROOT / "label" / "audio")
+    artwork_root = _root(raw.get("artwork_root", ""), audio_root / "artwork")
     bands = {
         slug: Band(slug=slug, audio_dir=spec["audio_dir"], prefix=spec["prefix"])
         for slug, spec in raw.get("bands", {}).items()
