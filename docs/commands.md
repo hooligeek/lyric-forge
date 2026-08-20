@@ -74,7 +74,7 @@ generate documentation
 
 | Option | Meaning |
 | --- | --- |
-| `kind` |  — one of framework, catalog **(required)** |
+| `kind` |  — one of framework, catalog, agents **(required)** |
 | `--out` | destination (e.g. a wiki clone) |
 | `--json` | structured output |
 

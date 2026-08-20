@@ -95,8 +95,25 @@ def cmd_stages(args: argparse.Namespace) -> int:
 def cmd_docs(args: argparse.Namespace) -> int:
     from . import docs as docs_mod
 
+    from . import agents as agents_mod
+
     cfg = config_mod.load()
     root = Path(args.out).expanduser() if args.out else docs_mod.DOCS
+
+    if args.kind == "agents":
+        # These land at the repository root, not under docs/ — each platform
+        # looks in its own fixed location and none of them looks in docs/.
+        target = Path(args.out).expanduser() if args.out else config_mod.REPO_ROOT
+        written = []
+        for f in agents_mod.build():
+            dest = target / f.path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(f.content, encoding="utf-8")
+            written.append(f.path)
+        data = {"kind": "agents", "root": str(target), "files": written,
+                "count": len(written)}
+        return _emit(args, data, docs_mod.format_result)
+
     ds = (
         docs_mod.build_framework() if args.kind == "framework"
         else docs_mod.build_catalog(cfg, root)
@@ -986,7 +1003,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_stages)
 
     p = sub.add_parser("docs", help="generate documentation")
-    p.add_argument("kind", choices=["framework", "catalog"])
+    p.add_argument("kind", choices=["framework", "catalog", "agents"])
     p.add_argument("--out", help="destination (e.g. a wiki clone)")
     p.add_argument("--json", action="store_true", help="structured output")
     p.set_defaults(func=cmd_docs)
