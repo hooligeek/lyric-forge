@@ -192,17 +192,36 @@ class Bundle:
 
     def write(self, root: Path) -> dict[str, Any]:
         written: dict[str, list[str]] = {}
+        pruned: list[str] = []
         for notebook, files in self.notebooks.items():
             target = root / notebook if notebook else root
             target.mkdir(parents=True, exist_ok=True)
             for f in files:
                 (target / f.name).write_text(f.content, encoding="utf-8")
             written[notebook or "."] = [f.name for f in files]
+
+            # Remove numbered pages this bundle no longer produces.
+            #
+            # Renumbering honesty-rules from 07 to 08 left BOTH on disk, because
+            # writing never deleted anything. CI could not catch it either: the
+            # stale file is byte-identical to what it always was, so `git diff`
+            # after a regenerate is clean and the orphan ships. A notebook user
+            # uploading the folder would have got the same document twice, which
+            # splits retrieval across identical sources.
+            #
+            # Scoped to the NN-*.md shape this generator owns, so anything a user
+            # added to the directory themselves is left alone.
+            keep = {f.name for f in files}
+            for existing in sorted(target.glob("[0-9][0-9]-*.md")):
+                if existing.name not in keep:
+                    existing.unlink()
+                    pruned.append(str(Path(notebook or ".") / existing.name))
         return {
             "kind": self.kind,
             "label": self.label,
             "root": str(root),
             "notebooks": written,
+            "pruned": pruned,
             "file_count": sum(len(v) for v in written.values()),
         }
 
@@ -352,7 +371,18 @@ Read **01-standards.md** on this before deciding a bad take is a
 bad take. When the synthesiser chokes, that is material, not an error — but
 whether a particular failure is worth keeping is your call and nobody else's.
 
-### 6. Keep a spent list
+### 6. Write the caption, last
+
+Paste **07-prompt-write-caption.md**, once the render exists and you have decided
+which failures you are keeping. It is written last on purpose: a caption names what
+actually happened, and until the take exists there is nothing to name.
+
+Hard limit 500 characters, because that is what the platform accepts. Set the scene
+in the concrete — the room, the hour, one physical object — and then quote the
+divergence: what was written, what came out instead. Do not explain why it is
+interesting and do not claim it was intended. It was kept; that is the statement.
+
+### 7. Keep a spent list
 
 The first time you notice a phrase recurring, write it down in a source file. That
 list is the single most useful thing you will build, and it only works if you
@@ -362,7 +392,7 @@ a rut, and you will not notice it by memory.
 ## What this kit deliberately does not do
 
 It does not measure. A notebook can read and it can listen; it cannot inspect a
-waveform. **07-honesty-rules.md** covers what follows from that — the short
+waveform. **08-honesty-rules.md** covers what follows from that — the short
 version is that any timecode a notebook produces is invented, so anchor
 observations to section and phrase instead.
 
@@ -388,11 +418,15 @@ def build_fresh() -> Bundle:
         ("04", "generate-song"),
         ("05", "review-lyrics"),
         ("06", "compile-sheet"),
+        # Last of the prompts because it is last in the workflow: a caption names
+        # what actually happened, including the failures that were kept, so it
+        # cannot be written before the render and the cover exist.
+        ("07", "write-caption"),
     ):
         files.append(
             BundleFile(f"{num}-prompt-{pid}.md", _render_for_notebook(pid, FRESH_REFS))
         )
-    files.append(BundleFile("07-honesty-rules.md", HONESTY))
+    files.append(BundleFile("08-honesty-rules.md", HONESTY))
     b.notebooks[""] = sorted(files, key=lambda f: f.name)
     return b
 

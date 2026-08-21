@@ -198,10 +198,25 @@ def track_slots(cfg: Config, band: str, track_slug: str) -> dict[str, Any]:
             bits.append(f"confidence: {r['confidence']}")
         rendered.append("\n   ".join(bits))
 
+    # The glitches that were KEPT, as distinct from candidates awaiting judgement.
+    # A caption is written after adjudication and after the cover exists, so it is
+    # the one prompt that needs the decided log rather than the open questions.
+    kept: list[str] = []
+    for g in (track.get("glitch_log") or []):
+        if g.get("preserved") is False:
+            continue
+        anchor = g.get("anchor") or {}
+        where = anchor.get("timecode") or anchor.get("region") or anchor.get("section") or "?"
+        line = f"- [{where}] {g.get('protocol')}: {g.get('description', '')}"
+        if g.get("preservation"):
+            line += f"\n  kept because: {g['preservation']}"
+        kept.append(line)
+
     return {
         "track_title": track.get("title", track_slug),
         "asr_verdict": verdict,
         "candidates": "\n\n".join(rendered),
+        "glitch_log": "\n".join(kept),
     }
 
 

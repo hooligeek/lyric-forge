@@ -80,7 +80,18 @@ Read **01-standards.md** on this before deciding a bad take is a
 bad take. When the synthesiser chokes, that is material, not an error — but
 whether a particular failure is worth keeping is your call and nobody else's.
 
-### 6. Keep a spent list
+### 6. Write the caption, last
+
+Paste **07-prompt-write-caption.md**, once the render exists and you have decided
+which failures you are keeping. It is written last on purpose: a caption names what
+actually happened, and until the take exists there is nothing to name.
+
+Hard limit 500 characters, because that is what the platform accepts. Set the scene
+in the concrete — the room, the hour, one physical object — and then quote the
+divergence: what was written, what came out instead. Do not explain why it is
+interesting and do not claim it was intended. It was kept; that is the statement.
+
+### 7. Keep a spent list
 
 The first time you notice a phrase recurring, write it down in a source file. That
 list is the single most useful thing you will build, and it only works if you
@@ -90,7 +101,7 @@ a rut, and you will not notice it by memory.
 ## What this kit deliberately does not do
 
 It does not measure. A notebook can read and it can listen; it cannot inspect a
-waveform. **07-honesty-rules.md** covers what follows from that — the short
+waveform. **08-honesty-rules.md** covers what follows from that — the short
 version is that any timecode a notebook produces is invented, so anchor
 observations to section and phrase instead.
 
