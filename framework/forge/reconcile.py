@@ -191,6 +191,19 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             rep.add("INVALID_LEDGER", "-", "ledger", str(exc))
             return rep
 
+    # Every track id on the label, so `suno.derived_from` can be checked against
+    # reality. Built up front because a clone may reference any track, not only one
+    # of its own band's.
+    known_ids: set[str] = set()
+    parent_of: dict[str, str] = {}
+    try:
+        for _slug, _band in cfg.bands.items():
+            for _t in ledger_mod.load_band_tracks(_band):
+                if _t.get("id"):
+                    known_ids.add(str(_t["id"]))
+    except ledger_mod.LedgerError:
+        pass  # reported below by the per-band pass
+
     excluded = cfg.excluded_audio
     total_tracks = 0
     total_audio = 0
@@ -346,6 +359,24 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                 if ledger_mod.get_nested(t, path) in (None, "", []):
                     gap("MISSING_FIELD", f"{human} not set (era: {era})")
 
+            # --- clone lineage -------------------------------------------
+            # Unrecorded is fine and is the default. A recorded value that points
+            # at nothing is not: that is a provenance claim the repo cannot
+            # support, which is worse than admitting the lineage is unknown.
+            derived = ledger_mod.get_nested(t, "suno.derived_from")
+            if derived:
+                derived = str(derived)
+                tid = str(t.get("id"))
+                if derived == tid:
+                    rep.add("BROKEN_LINEAGE_REF", slug, subject,
+                            "derived_from points at itself")
+                elif derived != "origin" and derived not in known_ids:
+                    rep.add("BROKEN_LINEAGE_REF", slug, subject,
+                            f"derived_from '{derived}' is not 'origin' and not a "
+                            f"known track id")
+                elif derived != "origin":
+                    parent_of[tid] = derived
+
             caption = ledger_mod.get_nested(t, "suno.caption")
             if caption and len(str(caption)) > SUNO_CAPTION_MAX:
                 rep.add(
@@ -360,6 +391,21 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             for p in sorted(lyrics_dir.glob("*.md")):
                 if p.stem not in by_slug:
                     rep.add("ORPHAN_SHEET", slug, p.name, "lyric sheet with no ledger entry")
+
+    # --- lineage cycles -----------------------------------------------------
+    # A clone chain has to terminate at an origin. A cycle means the ledger claims
+    # a render is descended from itself, which is not a lineage, and it would hang
+    # any future walk of the chain.
+    for start in sorted(parent_of):
+        seen = {start}
+        node = start
+        while node in parent_of:
+            node = parent_of[node]
+            if node in seen:
+                rep.add("LINEAGE_CYCLE", "-", start,
+                        f"derived_from chain loops back on itself at {node}")
+                break
+            seen.add(node)
 
     rep.stats = {
         "bands": len(cfg.bands),

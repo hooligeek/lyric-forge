@@ -668,6 +668,13 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
             meta.append(f"suite {suite}")
         if stance:
             meta.append(f"stance {stance}")
+        # Lineage, where recorded. A reader comparing two tracks that sound
+        # identical deserves to know one was cloned from the other.
+        lineage = ledger_mod.get_nested(t, "suno.derived_from")
+        if lineage == "origin":
+            meta.append("origin render")
+        elif lineage:
+            meta.append(f"cloned from `{lineage}`")
         L += [" · ".join(meta), ""]
 
         url = ledger_mod.get_nested(t, "suno.url")

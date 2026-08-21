@@ -43,6 +43,7 @@ class BandVariety:
     bpms: Counter = field(default_factory=Counter)
     keys: Counter = field(default_factory=Counter)
     prompts: Counter = field(default_factory=Counter)
+    lineage: Counter = field(default_factory=Counter)
     unclassified: int = 0
     warnings: list[str] = field(default_factory=list)
 
@@ -52,6 +53,48 @@ def _load_stance_roster() -> dict:
     if not path.exists():
         return {}
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _uniform(counter: Counter, total: int) -> bool:
+    """True only when one value is shared by EVERY track, not merely by every
+    track that happens to have one.
+
+    Three tracks with no declared tempo and one declaring 172 is not uniformity.
+    """
+    return total >= 3 and len(counter) == 1 and sum(counter.values()) == total
+
+
+def _warn_prompt_concentration(bv: BandVariety) -> None:
+    """One shared style prompt across a band means different things depending on
+    whether those tracks are clones, so the warning has to say which.
+
+    Extracted from run() to be testable without constructing a whole label. The
+    three branches are the three states of suno.derived_from.
+    """
+    if _uniform(bv.prompts, bv.total):
+        # Say WHY, where the ledger knows. A band whose tracks are clones of one
+        # render is sonically identical for a reason no rewording can touch, and
+        # a warning that only mentions the prompt implies a remedy that would
+        # not work. Where lineage is unrecorded, say that too rather than
+        # implying the prompt is the whole story.
+        clones = sum(n for k, n in bv.lineage.items() if k != "origin")
+        if clones:
+            bv.warnings.append(
+                f"every track shares one style prompt — no sonic variance. "
+                f"{clones} of {bv.total} are recorded as clones of another "
+                f"render, so the prompt describes the sound rather than causing "
+                f"it; rewording it will not vary anything"
+            )
+        elif not bv.lineage:
+            bv.warnings.append(
+                "every track shares one style prompt — no sonic variance. "
+                "Clone lineage is unrecorded, so whether the prompt caused this "
+                "sound or merely describes it cannot be told from here"
+            )
+        else:
+            bv.warnings.append(
+                "every track shares one style prompt — no sonic variance"
+            )
 
 
 def run(cfg: Config) -> tuple[list[BandVariety], dict]:
@@ -99,6 +142,9 @@ def run(cfg: Config) -> tuple[list[BandVariety], dict]:
                 bv.keys[key] += 1
             if prompt:
                 bv.prompts[prompt] += 1
+            lineage = ledger_mod.get_nested(t, "suno.derived_from")
+            if lineage:
+                bv.lineage[str(lineage)] += 1
 
         classified = sum(bv.stances.values())
         if classified >= 3:
@@ -116,16 +162,24 @@ def run(cfg: Config) -> tuple[list[BandVariety], dict]:
                     f"suite concentration: Suite {top} is {n}/{suite_total} "
                     f"({n / suite_total:.0%}) of tracks"
                 )
-        if bv.total >= 3 and len(bv.bpms) == 1:
+        # Coverage, not just distinctness.
+        #
+        # THE BUG: these read len(counter) == 1, which counts distinct values among
+        # the tracks that HAVE one. Warhead has a declared tempo on 1 of 4 tracks,
+        # and this reported "every track declares 172 BPM — no tempo variance".
+        # That is a false statement about three tracks that declare nothing, and it
+        # is the same failure this module was built to catch: a figure that reads as
+        # a measurement and is not one. Sparse data is a coverage gap, which
+        # reconcile already reports; it is not evidence of homogeneity.
+        if _uniform(bv.bpms, bv.total):
             bv.warnings.append(
                 f"every track declares {list(bv.bpms)[0]} BPM — no tempo variance"
             )
-        if bv.total >= 3 and len(bv.keys) == 1:
+        if _uniform(bv.keys, bv.total):
             bv.warnings.append(
                 f"every track declares {list(bv.keys)[0]} — no key variance"
             )
-        if bv.total >= 3 and len(bv.prompts) == 1:
-            bv.warnings.append("every track shares one style prompt — no sonic variance")
+        _warn_prompt_concentration(bv)
 
         results.append(bv)
 

@@ -78,11 +78,26 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
         # caption: the 500-character blurb Suno publishes with the song. Recorded
         # because it is label-authored text that shaped a release and otherwise
         # lives only on the platform.
+        #
+        # derived_from: how this render came to exist, which for a cloned track is
+        # the real generative input and was previously recorded nowhere. Three
+        # states, deliberately:
+        #
+        #   None            unrecorded. The honest default — absence of evidence,
+        #                   not evidence that nothing was cloned.
+        #   "origin"        generated from text, first of its lineage.
+        #   "<TRACK-ID>"    cloned from that render, style inherited rather than
+        #                   prompted.
+        #
+        # This matters because a style_prompt on a cloned track describes the sound
+        # instead of causing it. A whole band's catalogue can share one prompt and
+        # be sonically identical for a reason no amount of rewording would fix.
         "suno": {
             "style_prompt": None,
             "declared_bpm": None,
             "declared_key": None,
             "caption": None,
+            "derived_from": None,
         },
         "matrix": {"suite": None, "stance": None},
         "lyric_sheet": None,
