@@ -68,7 +68,12 @@ class Finding:
 # Reported for visibility but not a defect: a song still being written has no
 # audio yet, and `--strict` failing on that would make the gate unusable in CI
 # for exactly the work the tool exists to support.
-INFORMATIONAL = {"IN_PROGRESS", "WIP_GAP"}
+# STALE_TEMPO_BASELINE is informational rather than a defect on purpose. It says a
+# stored analysis predates the fix that stopped writing a band nominal into
+# declared_bpm — real, worth seeing, and fixed by re-running analyze on that track.
+# Failing --strict on it would block certification on eight legacy analysis blocks
+# whose audio has not changed, which is a worse trade than surfacing it.
+INFORMATIONAL = {"IN_PROGRESS", "WIP_GAP", "STALE_TEMPO_BASELINE"}
 
 # Stages at which a track claims to be finished, and its assets are therefore
 # expected to be complete. Before this, a missing cover or uncompiled sheet is
@@ -384,6 +389,16 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             # tracks silently had no tempo anywhere it mattered. A derived field
             # that nothing populates is indistinguishable from a missing
             # measurement, so check that the bridge held.
+            # A band nominal used to be written into rhythm.declared_bpm, so the
+            # error percentage compared a measurement against a default nobody
+            # aimed at. Fixed at the source; stored blocks from before it still
+            # carry the old shape and are reported until re-analysed.
+            rhy = (t.get("analysis") or {}).get("rhythm") or {}
+            if rhy.get("bpm_source") == "band_nominal" and rhy.get("declared_bpm"):
+                rep.add("STALE_TEMPO_BASELINE", slug, subject,
+                        f"analysis records declared_bpm {rhy['declared_bpm']} from the "
+                        f"band nominal, not a declaration; re-run analyze --write")
+
             detected = ledger_mod.get_nested(t, "analysis.rhythm.detected_bpm")
             if detected and not t.get("measured_bpm"):
                 rep.add("UNPROPAGATED_MEASUREMENT", slug, subject,

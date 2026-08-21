@@ -206,8 +206,24 @@ def load_analysis_signal(wav: Path, sr: int = 22050):
 
 
 def rhythm_pass(
-    wav: Path, declared_bpm: float | None, signal: tuple | None = None
+    wav: Path,
+    seed_bpm: float | None,
+    signal: tuple | None = None,
+    declared_bpm: float | None = None,
 ) -> tuple[dict, list[Candidate]]:
+    """Measure tempo, and compare it against a declaration ONLY if there is one.
+
+    seed_bpm and declared_bpm are different things and used to be the same
+    argument. A band's nominal tempo is a legitimate prior for the beat tracker,
+    but it is not a declaration about a track — so computing an error against it
+    produced lines like "21.4% off" for a song that never declared a tempo at all.
+    That is a miss reported against a default nobody aimed at, which is the same
+    fabrication this module exists to prevent, wearing a percentage sign.
+
+    Where there is no declaration: no relation, no error, tempo_locked is None
+    rather than False. None means "not assessed"; False would claim the comparison
+    ran and failed.
+    """
     import librosa
     import numpy as np
 
@@ -220,20 +236,21 @@ def rhythm_pass(
     # nor its half. An unseeded global tempo is not usable as evidence here, and
     # worse, a mis-locked grid makes every inter-beat interval look like drift.
     kwargs: dict[str, Any] = {"onset_envelope": onset, "sr": sr, "units": "time"}
-    if declared_bpm:
-        kwargs["start_bpm"] = float(declared_bpm)
+    if seed_bpm:
+        kwargs["start_bpm"] = float(seed_bpm)
     tempo, beats = librosa.beat.beat_track(**kwargs)
     tempo = float(np.atleast_1d(tempo)[0])
 
     metrics: dict[str, Any] = {
         "detected_bpm": round(tempo, 1),
         "beats": int(len(beats)),
-        "seeded": bool(declared_bpm),
+        "seeded": bool(seed_bpm),
+        "seed_bpm": round(float(seed_bpm), 1) if seed_bpm else None,
     }
     cands: list[Candidate] = []
 
     tempo_locked = False
-    if declared_bpm:
+    if declared_bpm:  # a real declaration, never the band nominal
         # Half/double-time detection is a reporting artefact, not a disagreement —
         # D-beat at 170 is routinely reported at 85.
         ratios = {
@@ -248,8 +265,15 @@ def rhythm_pass(
         tempo_locked = ratios[best] < 0.06
         metrics["tempo_locked"] = tempo_locked
     else:
+        metrics["declared_bpm"] = None
+        metrics["tempo_relation"] = None
+        metrics["tempo_error_pct"] = None
         metrics["tempo_locked"] = None
-        metrics["note"] = "no declared BPM; detected value is unverified"
+        metrics["note"] = (
+            "no declared BPM for this track; the detected value stands on its own "
+            "and is not compared against anything. A band nominal is a seeding "
+            "prior, not a declaration."
+        )
 
     if len(beats) > 8:
         ibi = np.diff(beats)
@@ -651,7 +675,7 @@ def analyze_track(
     declared = (track.get("suno") or {}).get("declared_bpm")
     seed = declared or fallback_bpm
     signal = load_analysis_signal(dsp_wav)
-    m, c = rhythm_pass(dsp_wav, seed, signal=signal)
+    m, c = rhythm_pass(dsp_wav, seed, signal=signal, declared_bpm=declared)
     m["bpm_source"] = "track" if declared else ("band_nominal" if fallback_bpm else None)
     ta.metrics["rhythm"] = m
     ta.candidates += c
@@ -687,10 +711,18 @@ def format_track(ta: TrackAnalysis, limit: int = 8) -> str:
         f"| dropouts {d.get('dropouts')}"
     )
     rel = r.get("tempo_relation")
-    rel_txt = f" ({rel}, {r.get('tempo_error_pct')}% off)" if rel else ""
+    if r.get("declared_bpm"):
+        against = (
+            f" vs {r.get('declared_bpm')} declared"
+            + (f" ({rel}, {r.get('tempo_error_pct')}% off)" if rel else "")
+        )
+    else:
+        # Say what seeded it, and do not imply a comparison that did not happen.
+        seed = r.get("seed_bpm")
+        against = f", undeclared (seeded {seed})" if seed else ", undeclared and unseeded"
     lines.append(
-        f"   rhythm {r.get('detected_bpm')} BPM detected vs {r.get('declared_bpm')} "
-        f"declared{rel_txt} | ibi sd {r.get('ibi_stdev_s')}s"
+        f"   rhythm {r.get('detected_bpm')} BPM detected{against} "
+        f"| ibi sd {r.get('ibi_stdev_s')}s"
     )
     agree = t.get("key_agrees")
     agree_txt = "" if agree is None else ("  AGREES" if agree else "  DISAGREES")
