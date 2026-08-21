@@ -161,9 +161,10 @@ framework/     generic — lift this into any label project untouched
   prompts/       the prompt library, as data
   stances.yaml   the rhetorical stance taxonomy
 label/         one label's instance
-  label.yaml     roster, asset roots, eras, canonical phrases
+  label.yaml     roster, asset roots, eras, canonical phrases, catalog_hero
   substrate.md   the shared biography the acts draw on
-  bands/<slug>/  band.yaml, dossier.md, retired.yaml, tracks.yaml, lyrics/
+  bands/<slug>/  band.yaml, dossier.md, retired.yaml, tracks.yaml, lyrics/,
+                 artwork-prompts/
   audio/         masters, committed
   artwork/       covers, committed
   sparks/        raw human input — gitignored
@@ -197,13 +198,36 @@ notebook's sources."*
 `label/bands/<slug>/tracks.yaml` is the spine. One entry per song, carrying:
 
 - **identity** — id, title, slug, band, era
-- **assets** — audio and artwork paths plus their `sha256`
+- **assets** — audio and artwork paths plus their `sha256`, and `artwork_prompt`:
+  the prompt the cover came from, kept for the same reason the lyric sheet is
 - **brief** — matrix suite, rhetorical stance
-- **suno** — style prompt, declared BPM and key, song id and url
+- **suno** — style prompt, declared BPM and key, song id and url, plus
+  `url_verified_at` (a verification is a point-in-time claim, so it carries its
+  date), `caption` (the 500-character blurb the platform publishes) and
+  `derived_from` (see below)
 - **measurement** — `measured_bpm`, the full `analysis` block
 - **glitch_log** — adjudicated anomalies with verified timecodes
 - **lifecycle** — current stage and append-only history
 - **provenance** — spark id, brief, prompt template and version, model
+- **superseded** — the analysis and glitch log of any previous master, archived
+  under its hash when audio is replaced. A timecode measured against a file that
+  no longer exists is still evidence of what that file did
+
+### Where a render came from
+
+`suno.derived_from` has three states and two of them are not the same claim:
+
+| | |
+| --- | --- |
+| `None` | unrecorded — absence of evidence |
+| `origin` | generated from text, first of its lineage |
+| a track id | cloned from that render, style inherited rather than prompted |
+
+This exists because a style prompt on a cloned track *describes* the sound instead
+of causing it. A whole act can share one prompt and be sonically identical for a
+reason no rewording would touch, and a report naming only the prompt implies a
+remedy that cannot work. `variety` distinguishes the three cases and says which one
+it is looking at, including saying plainly when the lineage is unknown.
 
 ### Declared and measured are kept apart
 
