@@ -33,9 +33,13 @@ TRACK_FIELDS = [
     "artwork",       # path relative to artwork_root
     "artwork_sha256",
     "duration_s",
-    "suno",          # {style_prompt, declared_bpm, declared_key}
+    "suno",          # {style_prompt, declared_bpm, declared_key, caption, url, song_id}
     "matrix",        # {suite, stance}
     "lyric_sheet",   # path relative to repo root, or None
+    # The prompt the cover was generated from, path relative to repo root. Kept for
+    # the same reason the lyric sheet is: it is the input the artefact came from,
+    # and a generated image whose prompt is lost is unreproducible and unarguable.
+    "artwork_prompt",
     "glitch_log",    # list of entries (see framework/schema/track.schema.json)
     "analysis",      # filled by `forge analyze`, never hand-edited
     "sheet_mismatch_acknowledged",  # {reason} — a known, recorded discrepancy
@@ -71,7 +75,15 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
         "audio": audio,
         "artwork": None,
         "duration_s": None,
-        "suno": {"style_prompt": None, "declared_bpm": None, "declared_key": None},
+        # caption: the 500-character blurb Suno publishes with the song. Recorded
+        # because it is label-authored text that shaped a release and otherwise
+        # lives only on the platform.
+        "suno": {
+            "style_prompt": None,
+            "declared_bpm": None,
+            "declared_key": None,
+            "caption": None,
+        },
         "matrix": {"suite": None, "stance": None},
         "lyric_sheet": None,
         "glitch_log": [],

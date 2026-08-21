@@ -41,7 +41,7 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip() if path.exists() else ""
 
 
-def _strip_frontmatter(text: str) -> str:
+def strip_frontmatter(text: str) -> str:
     if text.startswith("---"):
         parts = text.split("---", 2)
         if len(parts) >= 3:
@@ -62,11 +62,11 @@ def label_spec() -> dict:
 
 
 def substrate() -> str:
-    return _strip_frontmatter(_read(config_mod.LABEL_DIR / "substrate.md"))
+    return strip_frontmatter(_read(config_mod.LABEL_DIR / "substrate.md"))
 
 
 def dossier(cfg: Config, slug: str) -> str:
-    return _strip_frontmatter(_read(cfg.bands[slug].dir / "dossier.md"))
+    return strip_frontmatter(_read(cfg.bands[slug].dir / "dossier.md"))
 
 
 def catalogue_digest(cfg: Config, slug: str) -> str:
@@ -227,7 +227,7 @@ def build(
         "tag_formula": TAG_FORMULA,
         # Sparks are stored with frontmatter for their id; the model wants the
         # note, not the bookkeeping.
-        "spark": _strip_frontmatter(spark.strip()),
+        "spark": strip_frontmatter(spark.strip()),
         "lyrics": lyrics.strip(),
         "extra_context": extra_context.strip(),
         "vision": vision.strip(),

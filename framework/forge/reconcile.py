@@ -23,7 +23,18 @@ ACAP_REQUIRED = [
     ("suno.declared_key", "declared key"),
     ("matrix.suite", "matrix suite"),
     ("matrix.stance", "rhetorical stance"),
+    # The caption Suno carries alongside each song. It is published metadata the
+    # label writes and then loses, which makes it the same class of thing as the
+    # style prompt: an input that shaped a release and existed nowhere in the
+    # repository. Required for current-era work only, so the pre-standard
+    # catalogue is exempt by construction rather than by exception — nothing is
+    # backfilled and no rule needs a carve-out.
+    ("suno.caption", "Suno caption"),
 ]
+
+# Suno's own limit. A caption over this is rejected at the platform, so a ledger
+# holding one is describing a release that cannot exist as described.
+SUNO_CAPTION_MAX = 500
 
 # Wanted for every track regardless of era: these are recoverable and the whole
 # backfill goal is to have them.
@@ -306,6 +317,18 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
             if not sheet_ok:
                 gap("NO_LYRIC_SHEET", "no lyric sheet on disk")
 
+            # A dangling artwork prompt is reported but its absence is not a gap.
+            # Not every cover came from a prompt — imported work predates the
+            # practice — so requiring one would fabricate a standard backwards over
+            # the catalogue. A path that points at nothing is a different matter:
+            # that is a claim the repo cannot support.
+            art_prompt = t.get("artwork_prompt")
+            if art_prompt and not (config_mod.REPO_ROOT / art_prompt).exists():
+                rep.add(
+                    "BROKEN_ARTWORK_PROMPT_REF", slug, subject,
+                    f"artwork_prompt points at missing {art_prompt}",
+                )
+
             era = t.get("era") or "pre-standard"
             required = list(ALWAYS_WANTED)
             if era == cfg.current_era:
@@ -315,6 +338,14 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                     continue  # handled above with existence checking
                 if ledger_mod.get_nested(t, path) in (None, "", []):
                     gap("MISSING_FIELD", f"{human} not set (era: {era})")
+
+            caption = ledger_mod.get_nested(t, "suno.caption")
+            if caption and len(str(caption)) > SUNO_CAPTION_MAX:
+                rep.add(
+                    "CAPTION_TOO_LONG", slug, subject,
+                    f"caption is {len(str(caption))} characters; Suno's limit is "
+                    f"{SUNO_CAPTION_MAX}",
+                )
 
         # --- lyric sheets with no ledger entry -------------------------------
         lyrics_dir = band.dir / "lyrics"

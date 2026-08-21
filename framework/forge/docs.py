@@ -667,13 +667,38 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
             L += ["<details>", "<summary>Lyrics</summary>", "", "```", body, "```", "",
                   "</details>", ""]
 
+        # The prompt that produced the cover, collapsed the same way the lyrics are.
+        #
+        # Worth keeping for the same reason the lyric sheet is: it is the input the
+        # artefact came from, and without it a cover is unreproducible and
+        # unarguable. A generated image whose prompt is lost is the visual
+        # equivalent of a measurement with no method.
+        art_prompt = t.get("artwork_prompt")
+        if art_prompt and (config_mod.REPO_ROOT / art_prompt).exists():
+            body = (config_mod.REPO_ROOT / art_prompt).read_text(encoding="utf-8")
+            body = context_mod.strip_frontmatter(body).strip()
+            L += ["<details>", "<summary>Artwork prompt</summary>", "", "```text", body,
+                  "```", "", "</details>", ""]
+
         log = t.get("glitch_log") or []
         if log:
             L += ["<details>", f"<summary>Glitch log ({len(log)})</summary>", ""]
             for g in log:
                 anchor = g.get("anchor") or {}
-                where = anchor.get("timecode") or anchor.get("section") or "?"
-                verified = "measured" if g.get("timecode_verified") else "by ear"
+                # `region` anchors a visual artefact the way a timecode anchors an
+                # audible one. Without it in this chain an artwork entry rendered
+                # as "at ?", which reads as missing evidence when the evidence is
+                # simply of a different kind.
+                where = (anchor.get("timecode") or anchor.get("section")
+                         or anchor.get("region") or "?")
+                if g.get("timecode_verified"):
+                    verified = "measured"
+                elif g.get("type") == "artwork-artefact":
+                    # You do not hear a cover. Calling a visual finding "by ear"
+                    # misdescribes how it was established.
+                    verified = "observed"
+                else:
+                    verified = "by ear"
                 L.append(f"- **{g.get('protocol')}** at {where} *({verified})* — "
                          f"{g.get('description','')}")
             L += ["", "</details>", ""]
