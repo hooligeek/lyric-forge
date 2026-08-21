@@ -494,6 +494,27 @@ The agent files are four copies of one source. They are duplicated because most 
 # ---------------------------------------------------------------------------
 # catalog docs
 # ---------------------------------------------------------------------------
+def fence_for(body: str) -> str:
+    """A code fence guaranteed longer than any fence inside `body`.
+
+    Wrapping arbitrary file content in exactly three backticks breaks the instant
+    the content contains three backticks: the inner fence closes the outer block
+    early, the rest of the body escapes into the page, and the intended closer
+    opens a block that never ends — swallowing everything after it.
+
+    That is not hypothetical. Five imported lyric sheets carried a stray closing
+    fence from their original harvest, and the visible symptom was a whole track
+    disappearing from the rendered catalogue while being perfectly present in the
+    source. CommonMark's own answer is a longer fence, so use one.
+    """
+    longest = 0
+    for line in body.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("`"):
+            longest = max(longest, len(stripped) - len(stripped.lstrip("`")))
+    return "`" * max(3, longest + 1)
+
+
 def asset_link(out_root: Path, subdir: str, target: Path) -> str:
     """Link from a generated page to a committed asset.
 
@@ -673,7 +694,8 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
             body = (config_mod.REPO_ROOT / sheet).read_text(encoding="utf-8")
             if "## Lyrics" in body:
                 body = body.split("## Lyrics", 1)[1].strip()
-            L += ["<details>", "<summary>Lyrics</summary>", "", "```", body, "```", "",
+            f = fence_for(body)
+            L += ["<details>", "<summary>Lyrics</summary>", "", f, body, f, "",
                   "</details>", ""]
 
         # The prompt that produced the cover, collapsed the same way the lyrics are.
@@ -686,8 +708,9 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
         if art_prompt and (config_mod.REPO_ROOT / art_prompt).exists():
             body = (config_mod.REPO_ROOT / art_prompt).read_text(encoding="utf-8")
             body = context_mod.strip_frontmatter(body).strip()
-            L += ["<details>", "<summary>Artwork prompt</summary>", "", "```text", body,
-                  "```", "", "</details>", ""]
+            f = fence_for(body)
+            L += ["<details>", "<summary>Artwork prompt</summary>", "", f + "text",
+                  body, f, "", "</details>", ""]
 
         log = t.get("glitch_log") or []
         if log:

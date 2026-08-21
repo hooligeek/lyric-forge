@@ -252,6 +252,28 @@ def test_set_label_furniture_with_no_markers_is_harmless():
 # Silently dropping an over-long line made a truncated import look complete, so
 # the drop is recorded on the song where a caller can surface it.
 
+def test_a_code_fence_is_not_a_lyric():
+    """THE BUG: five imported sheets carried a stray closing fence from their
+    original harvest, and it was captured as a sung line.
+
+    That put it in plain_text() and inflated word_count by one on each of them.
+    The transcript diff was NOT affected — `analyze` tokenises to [a-z0-9']+ and
+    drops the fence, which was verified against the stored counts rather than
+    assumed. The damage was to the rendered catalogue: an odd number of fences
+    inside a fenced block made whole tracks vanish from the page.
+    """
+    fence = chr(96) * 3
+    doc = f"""## TRACK 01: T
+
+[Verse | x]
+a real lyric
+{fence}
+"""
+    (song,) = lyrics.parse(doc)
+    assert song.plain_text() == "a real lyric"
+    assert song.word_count == 3
+
+
 def test_over_long_lines_are_recorded_not_silently_dropped():
     prose = "word " * 100  # >300 chars
     doc = f"""## TRACK 01: T

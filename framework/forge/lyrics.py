@@ -350,6 +350,19 @@ def parse(raw: str, source: str = "") -> list[Song]:
                 continue
             if stripped.startswith("#"):
                 continue
+            # A markdown code fence is document furniture, never something sung.
+            # Five imported sheets carried a stray closing fence from their
+            # original harvest and it was captured as a lyric line, which put it in
+            # plain_text() and inflated word_count by one on each of them.
+            #
+            # Scope, checked rather than assumed: the transcript diff was NOT
+            # affected. `analyze` tokenises to [a-z0-9']+, which drops the fence
+            # entirely — Iron Mind's stored expected_words was 353 while its
+            # word_count read 354, and the 353 was right. The visible damage was to
+            # the rendered catalogue, where an odd number of fences inside a fenced
+            # block made whole tracks disappear from the page.
+            if stripped.startswith("```"):
+                continue
             if len(stripped) > MAX_LYRIC_LINE:
                 # Silently dropping it made a truncated import look complete.
                 # Record it on the song so callers can surface it.
