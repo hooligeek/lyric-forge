@@ -19,6 +19,8 @@ space is the useful part.
 
 from __future__ import annotations
 
+import re
+
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -282,6 +284,25 @@ def build(
     stance = stance or confirmed.get("stance") or proposal.stance
     bpm = bpm or confirmed.get("bpm") or proposal.bpm
 
+    # The suite-anchor constraint is built by `propose` against the suite IT chose,
+    # so overriding the suite left the prompt self-contradictory: it described Suite
+    # F at length and then instructed, under "Rules in force", that at least one
+    # Suite E anchor must appear. A generator obeying the rules section would have
+    # written the wrong song and been correct to.
+    #
+    # This is the precedence comment above, violated three lines below itself.
+    # Resolve the anchors for the suite actually in force.
+    constraints = [
+        c for c in proposal.constraints
+        if not re.match(r"Suite \S+ anchors — ", c)
+    ]
+    suite_def = (spec.get("suites") or {}).get(suite) or {}
+    if suite_def.get("anchors"):
+        constraints.insert(0, (
+            f"Suite {suite} anchors — at least one must appear: "
+            + ", ".join(suite_def["anchors"])
+        ))
+
     ctx.update(
         {
             "band_slug": band,
@@ -309,7 +330,7 @@ def build(
             "canon_rules": spec.get("canon_rules") or [],
             "catalogue_digest": catalogue_digest(cfg, band),
             "avoid": proposal.avoid,
-            "constraints": proposal.constraints,
+            "constraints": constraints,
             "suite_reason": proposal.suite_reason,
             "stance_reason": proposal.stance_reason,
         }

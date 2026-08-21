@@ -130,6 +130,16 @@ def check_cues(song: lyrics_mod.Song) -> list[Finding]:
     for sec in song.sections:
         if sec.is_style:
             continue
+        # A terminator is not a section, so the section formula does not apply to
+        # it. `[End | Genre/Era | Vocal Texture | Production Vibe]` is nonsense —
+        # nothing is performed there, it marks where performance stops.
+        #
+        # This was a latent false positive until it mattered: eleven committed
+        # sheets close on a bare `[End]`, and it is the house convention for three
+        # of the five acts. Flagging it told an author to break their own band's
+        # convention to satisfy a rule that was never about them.
+        if lyrics_mod.TERMINATOR_RE.match(sec.tag):
+            continue
         parts = [p.strip() for p in sec.tag.split("|")]
         if len(parts) < 2:
             out.append(
