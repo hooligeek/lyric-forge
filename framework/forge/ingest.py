@@ -102,8 +102,20 @@ def _archive_superseded(track: dict, old_hash: str | None) -> dict | None:
         "analysis": analysis,
         "glitch_log": log,
     }
-    history = track.setdefault("superseded", [])
+    # `setdefault` was wrong here, and the failure mode was a crash mid-replace.
+    #
+    # "superseded" is in TRACK_FIELDS, so a normalised track carries the key with
+    # value None rather than not carrying it. setdefault only inserts when the key
+    # is ABSENT, so it handed back the None and .append() raised AttributeError.
+    # Same shape as the `_has(False)` bug: explicitly-null is not the same as
+    # missing, and the helpers that paper over "missing" do not cover it.
+    #
+    # This aborted cleanly only because the archive runs BEFORE the file copy. Had
+    # the order been reversed, the new master would be on disk with the ledger
+    # still describing the old one and its timecodes. That ordering is load-bearing.
+    history = track.get("superseded") or []
     history.append(record)
+    track["superseded"] = history
     track["analysis"] = None
     track["glitch_log"] = []
     return {

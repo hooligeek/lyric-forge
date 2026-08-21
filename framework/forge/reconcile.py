@@ -377,6 +377,19 @@ def run(cfg: Config, probe_audio: bool = True, check_hashes: bool = True) -> Rep
                 elif derived != "origin":
                     parent_of[tid] = derived
 
+            # --- the measurement reached the field that is read ------------
+            # `measured_bpm` is read by docs, variety, pipeline and context, and
+            # for a long time was written by nothing: the analyser recorded
+            # detected_bpm and the summary field stayed null, so newly analysed
+            # tracks silently had no tempo anywhere it mattered. A derived field
+            # that nothing populates is indistinguishable from a missing
+            # measurement, so check that the bridge held.
+            detected = ledger_mod.get_nested(t, "analysis.rhythm.detected_bpm")
+            if detected and not t.get("measured_bpm"):
+                rep.add("UNPROPAGATED_MEASUREMENT", slug, subject,
+                        f"analysis measured {detected} BPM but measured_bpm is unset; "
+                        f"re-run analyze --write")
+
             caption = ledger_mod.get_nested(t, "suno.caption")
             if caption and len(str(caption)) > SUNO_CAPTION_MAX:
                 rep.add(

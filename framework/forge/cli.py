@@ -966,6 +966,22 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
             if args.write:
                 t["analysis"] = ta.to_dict()["metrics"]
+                # measured_bpm was READ by docs, variety, pipeline and context and
+                # WRITTEN by nothing. The 21 imported tracks carry it only because
+                # it was backfilled by hand, so every track analysed since has had
+                # a null tempo: no Tempo line in the catalogue, excluded from the
+                # band's measured range, and absent from the tempo-ceiling evidence
+                # that goes into generate-song prompts. A field named for a
+                # measurement that the measuring command does not write is
+                # guaranteed to drift, and it had.
+                #
+                # Written unconditionally from detected_bpm, including when the beat
+                # grid does not lock to the declared tempo — an unlocked grid means
+                # the DECLARATION is wrong, not that the tempo is unmeasurable, and
+                # that is exactly the case worth surfacing.
+                detected = (t["analysis"].get("rhythm") or {}).get("detected_bpm")
+                if detected:
+                    t["measured_bpm"] = detected
                 cand_doc["tracks"][tslug] = [c.to_dict() for c in ta.candidates]
                 changed = True
 
