@@ -655,6 +655,15 @@ def _catalog_band(cfg: Config, slug: str, out_root: Path) -> str:
             note = "" if verified else " *(link constructed from the song id, unverified)*"
             L += [f"[Listen on Suno]({url}){note}", ""]
 
+        # The published caption, shown rather than merely stored. It is the only
+        # label-authored prose a listener actually encounters, so a catalogue that
+        # holds it and does not show it is keeping the wrong half.
+        caption = ledger_mod.get_nested(t, "suno.caption")
+        if caption:
+            for para in str(caption).strip().split("\n\n"):
+                L += ["> " + " ".join(para.split()), ">"]
+            L[-1] = ""
+
         stats = _track_stats(t)
         if stats:
             L += ["  \n".join(stats), ""]

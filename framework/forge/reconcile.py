@@ -17,10 +17,17 @@ from .config import Config, slugify
 
 # Era-aware: a pre-standard track is not expected to carry matrix/stance data,
 # so nagging about it would be noise. See label.yaml: eras.
+#
+# `suno.declared_key` is deliberately NOT here. Suno does not emit a key, and the
+# tonal pass is documented as unusable on this material — it agreed with the
+# declared key on 1 of 4 tracks that share one. So the only way to satisfy a
+# required declared_key is to invent it, and a gate that can only be cleared by
+# guessing manufactures exactly the fabrication the rest of this file exists to
+# catch. It stays an optional field: recorded where a real one exists, absent
+# otherwise, and never demanded.
 ACAP_REQUIRED = [
     ("suno.style_prompt", "Suno style prompt"),
     ("suno.declared_bpm", "declared BPM"),
-    ("suno.declared_key", "declared key"),
     ("matrix.suite", "matrix suite"),
     ("matrix.stance", "rhetorical stance"),
     # The caption Suno carries alongside each song. It is published metadata the
