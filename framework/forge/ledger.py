@@ -98,6 +98,18 @@ def blank_track(track_id: str, title: str, band: str, audio: str | None = None) 
             "declared_key": None,
             "caption": None,
             "derived_from": None,
+            # url_verified is a point-in-time claim and it decays silently. A
+            # Load-Bearing link verified at HTTP 200 with a matching og:title was
+            # deleted from the platform hours later, and nothing in the repository
+            # knew: the gate had already passed, so the ledger went on asserting a
+            # verified link to a 404. Dating the claim does not re-check it, but it
+            # stops the claim from being timeless. A `verify-links` pass that
+            # re-walks them is the actual fix and does not exist yet.
+            #
+            # One trap worth recording: the CDN object for a deleted render keeps
+            # returning 200 long after the share page is gone. Only the share page
+            # is a validity signal.
+            "url_verified_at": None,
         },
         "matrix": {"suite": None, "stance": None},
         "lyric_sheet": None,
