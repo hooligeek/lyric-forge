@@ -388,6 +388,65 @@ class Review:
         }
 
 
+def check_render_length(
+    cfg: Config, song: lyrics_mod.Song, band: str | None, track: str | None
+) -> list[Finding]:
+    """Did the render have time to sing the sheet?
+
+    Coverage alone conflates two different failures. A transcript covering 56% of
+    the sheet can mean the vocal was unintelligible, or it can mean the renderer
+    was never given long enough and dropped material. Those need opposite
+    responses — fix the delivery, or ask for a longer arrangement — and the
+    duration tells you which.
+
+    Every Three Years is the case that prompted this: 288 sung words, coverage
+    0.556, and a 1:54 render. At this band's measured 80-100 words per minute
+    those words need 2.9 to 3.6 minutes, so roughly a third of the sheet had
+    nowhere to go. The sheet was not too long in the abstract — a released track on
+    the same act carries 285 words at 3:35 — the RENDER was short.
+
+    Advisory, and only computed once a duration exists. Before a render there is
+    nothing to compare against, and guessing would have been the first version of
+    this check, which measured the wrong thing.
+    """
+    if not band or not track:
+        return []
+    rows = ledger_mod.load_band_tracks(cfg.bands[band])
+    row = next((r for r in rows if r.get("slug") == track), None)
+    if not row or not row.get("duration_s"):
+        return []
+
+    rates: list[float] = []
+    for r in rows:
+        if r.get("slug") == track:
+            continue
+        sheet, dur = r.get("lyric_sheet"), r.get("duration_s")
+        if not sheet or not dur:
+            continue
+        path = config_mod.REPO_ROOT / sheet
+        if path.exists():
+            words = lyrics_mod.load_sheet(path).word_count
+            if words:
+                rates.append(words / (dur / 60.0))
+    if len(rates) < 3 or not song.word_count:
+        return []
+
+    lo, hi = min(rates), max(rates)
+    needed_min = song.word_count / hi          # best case: fastest rate on record
+    actual_min = row["duration_s"] / 60.0
+    if actual_min >= needed_min:
+        return []
+    shortfall = 1.0 - (actual_min / needed_min)
+    return [Finding(
+        "advisory", "render-too-short",
+        f"{song.word_count} sung words need at least {needed_min:.1f} min at this "
+        f"band's fastest measured delivery ({hi:.0f} words/min), and the render is "
+        f"{actual_min:.1f} min — about {shortfall:.0%} of the sheet had nowhere to "
+        f"go. Low transcript coverage here is arithmetic, not necessarily a vocal "
+        f"problem. Re-render for a longer arrangement, or cut the sheet to fit.",
+    )]
+
+
 def run(
     cfg: Config,
     lyric_text: str,
@@ -440,6 +499,7 @@ def run(
         rv.findings += check_anchors(song, spec, suite)
         rv.findings += check_register(song, spec, bpm)
     rv.findings += check_catalogue_overlap(cfg, song, band, track)
+    rv.findings += check_render_length(cfg, song, band, track)
 
     rv.stats = {
         "sections": len(song.lyric_sections),
