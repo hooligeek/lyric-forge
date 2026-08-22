@@ -164,9 +164,13 @@ whole catalogue. It is not a quality judgement about anyone's music, and it neve
 will be. It means the catalogue is complete, internally consistent, and its
 documentation was generated from the ledger it describes.
 
-| Fork | Label | Acts | Tracks | Certified |
+| Fork | Label | Acts | Releases | Certified |
 | --- | --- | --- | --- | --- |
-| `vector-soul-label` | Vector Soul Records | 5 | 21 | ✅ 9/9 |
+| `vector-soul-label` | Vector Soul Records | 5 | 23 | ✅ 9/9 |
+
+*Releases*, not tracks — a song mid-pipeline is work, not a gap, and counting it
+here would inflate the number the certification is about. The figures come from
+`forge certify --json` and `forge status --json` rather than from counting by hand.
 
 ### What certification checks
 
