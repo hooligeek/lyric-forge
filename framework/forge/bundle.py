@@ -540,11 +540,14 @@ def build_fresh() -> Bundle:
     # one that says "Warhead" is trivia about somebody else's band.
     #
     # Worth being accurate about the wider claim, since it is easy to overstate:
-    # framework/ does carry this roster's band names in explanatory comments, where
-    # they cite the evidence a design decision came from. Those do not change
-    # behaviour. framework/tools/normalize_assets.py is the real exception — a
-    # one-off migration with one label's filenames hardcoded — and it should not be
-    # here at all.
+    # framework/ does carry the reference roster's band names in explanatory
+    # comments, where they cite the evidence a design decision came from. Those do
+    # not change behaviour and they earn their place — a rule with its evidence
+    # attached is easier to trust than a rule asserted.
+    #
+    # What was NOT defensible has been removed: a one-off asset-renaming migration
+    # with one label's filenames hardcoded, which shipped to every fork that lifted
+    # framework/ and could never have been useful to any of them.
     files.append(BundleFile("09-example-artwork-prompt.md", EXAMPLE_ARTWORK))
     files.append(BundleFile("10-honesty-rules.md", HONESTY))
     b.notebooks[""] = sorted(files, key=lambda f: f.name)

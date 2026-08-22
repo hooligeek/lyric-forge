@@ -6,6 +6,15 @@
 > addressed** — see the three `fix:` commits that follow it. Read it for the
 > method and the calibration section, not as a current defect list.
 >
+> One correction to that claim, since it was made too early. F8 listed six
+> locations and five were fixed on 2026-08-20; the sixth,
+> `framework/tools/normalize_assets.py`, survived until 2026-08-21 — a one-off
+> asset migration with one label's filenames hardcoded, which had been shipping to
+> every fork that lifted `framework/`. The banner asserted "all addressed" for a
+> day while a confirmed high-severity finding was still live in the tree. Worth
+> leaving visible: a remediation claim is as checkable as the finding it answers,
+> and nothing was checking this one.
+>
 > The brief that produced it is [adversarial-audit.md](adversarial-audit.md), and
 > it is reusable: any fork should run it.
 

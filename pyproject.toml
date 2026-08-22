@@ -27,7 +27,7 @@ dev = ["pytest>=8"]
 forge = "framework.forge.cli:main"
 
 [tool.setuptools]
-packages = ["framework", "framework.forge", "framework.tools"]
+packages = ["framework", "framework.forge"]
 
 [tool.setuptools.package-data]
 "framework" = ["prompts/*.md", "stances.yaml", "schema/*.json"]
