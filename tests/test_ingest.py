@@ -78,6 +78,59 @@ def test_the_archive_carries_what_it_superseded():
     assert record["superseded_on"]
 
 
+# --- visual entries survive an audio replacement ----------------------------
+#
+# THE BUG: archiving moved the whole glitch_log aside, so replacing a master filed
+# the ARTWORK entries under the superseded audio hash. A cover glitch that was still
+# true of a file nobody had touched vanished from the live log — silently, because
+# nothing was deleted. The catalogue page simply stopped mentioning a failure the
+# cover still has.
+
+def _visual(protocol="Scorched Plate"):
+    return {"protocol": protocol, "type": "artwork-artefact",
+            "anchor": {"region": "monitor, left edge"}}
+
+
+def test_artwork_entries_are_not_archived_with_the_audio():
+    t = _track()
+    t["glitch_log"] = [
+        {"type": "lyric-divergence", "protocol": "A", "anchor": {"timecode": "01:00"}},
+        _visual(),
+    ]
+    result = ingest_mod._archive_superseded(t, "oldhash0000")
+
+    assert [g["type"] for g in t["glitch_log"]] == ["artwork-artefact"], \
+        "the cover entry must stay live; the image was not replaced"
+    assert [g["type"] for g in t["superseded"][0]["glitch_log"]] == ["lyric-divergence"]
+    assert result["glitch_entries"] == 1
+    assert result["kept_visual"] == 1
+
+
+def test_a_track_with_only_visual_entries_and_no_analysis_archives_nothing():
+    """Nothing about the audio was ever measured, so there is nothing to supersede —
+    and the cover entry is not a reason to invent an archive record."""
+    t = {"id": "T-003", "analysis": None, "glitch_log": [_visual()]}
+    assert ingest_mod._archive_superseded(t, "oldhash0000") is None
+    assert "superseded" not in t
+    assert len(t["glitch_log"]) == 1
+
+
+def test_visual_entries_survive_two_replacements():
+    t = _track()
+    t["glitch_log"] = [
+        {"type": "dropout", "protocol": "A", "anchor": {"timecode": "01:00"}},
+        _visual(),
+    ]
+    ingest_mod._archive_superseded(t, "hash1")
+    t["analysis"] = {"asr": {}}
+    t["glitch_log"].append(
+        {"type": "dropout", "protocol": "B", "anchor": {"timecode": "02:00"}}
+    )
+    ingest_mod._archive_superseded(t, "hash2")
+    assert [g["protocol"] for g in t["glitch_log"]] == ["Scorched Plate"]
+    assert len(t["superseded"]) == 2
+
+
 def test_archiving_a_track_with_nothing_measured_writes_no_record():
     """Replacing audio on a never-analysed track must not invent an archive entry
     claiming something was superseded.

@@ -85,11 +85,27 @@ def _file_track(cfg: Config, band: str, slug: str):
     return rows, track
 
 
+# Glitch entries whose evidence is the artwork, not the audio. Replacing a master
+# cannot invalidate them, because the image is a different file and is untouched.
+VISUAL_GLITCH_TYPES = {"artwork-artefact"}
+
+
 def _archive_superseded(track: dict, old_hash: str | None) -> dict | None:
-    """Move analysis and glitch log aside, keyed by the hash they describe."""
+    """Move the analysis and the AUDIBLE glitch log aside, keyed by the hash they
+    describe.
+
+    Archive by what an entry describes, not by which list it happens to sit in.
+    Replacing a master archived the artwork entries with it — so a cover glitch that
+    was still true of a file nobody had touched got filed under a superseded audio
+    hash and vanished from the live log. Nothing was deleted, which is why it was
+    silent: the catalogue page simply stopped mentioning a failure the cover still
+    has.
+    """
     analysis = track.get("analysis")
     log = track.get("glitch_log") or []
-    if not analysis and not log:
+    audible = [g for g in log if g.get("type") not in VISUAL_GLITCH_TYPES]
+    visual = [g for g in log if g.get("type") in VISUAL_GLITCH_TYPES]
+    if not analysis and not audible:
         return None
 
     record = {
@@ -100,7 +116,7 @@ def _archive_superseded(track: dict, old_hash: str | None) -> dict | None:
             "previous master and does not apply to the new one"
         ),
         "analysis": analysis,
-        "glitch_log": log,
+        "glitch_log": audible,
     }
     # `setdefault` was wrong here, and the failure mode was a crash mid-replace.
     #
@@ -117,10 +133,13 @@ def _archive_superseded(track: dict, old_hash: str | None) -> dict | None:
     history.append(record)
     track["superseded"] = history
     track["analysis"] = None
-    track["glitch_log"] = []
+    # Visual entries survive. They describe the cover, which this replacement did
+    # not touch.
+    track["glitch_log"] = visual
     return {
         "audio_sha256": (old_hash or "")[:12],
-        "glitch_entries": len(log),
+        "glitch_entries": len(audible),
+        "kept_visual": len(visual),
         "had_analysis": bool(analysis),
     }
 
