@@ -91,7 +91,17 @@ in the concrete — the room, the hour, one physical object — and then quote t
 divergence: what was written, what came out instead. Do not explain why it is
 interesting and do not claim it was intended. It was kept; that is the statement.
 
-### 7. Keep a spent list
+### 7. Then the cover
+
+Paste **08-prompt-write-artwork.md**. It goes after the caption for the same reason
+the caption goes after the render: the strongest covers put the song's own kept
+failure into the image, and until the take exists there is no failure to put there.
+
+**09-example-artwork-prompt.md** is a real one, with what it produced and what it got
+wrong. It is the only page in this kit that cites an actual release, because a prompt
+of that kind is far easier to copy than to describe.
+
+### 8. Keep a spent list
 
 The first time you notice a phrase recurring, write it down in a source file. That
 list is the single most useful thing you will build, and it only works if you
@@ -101,7 +111,7 @@ a rut, and you will not notice it by memory.
 ## What this kit deliberately does not do
 
 It does not measure. A notebook can read and it can listen; it cannot inspect a
-waveform. **08-honesty-rules.md** covers what follows from that — the short
+waveform. **10-honesty-rules.md** covers what follows from that — the short
 version is that any timecode a notebook produces is invented, so anchor
 observations to section and phrase instead.
 

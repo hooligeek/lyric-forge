@@ -74,6 +74,99 @@ FRESH_REFS = {
     "stance_roster": "See **02-stances.md** in this notebook's sources.",
 }
 
+EXAMPLE_ARTWORK = """\
+# Example: a real cover prompt, and what it did
+
+One worked example. Everything else in this kit is generic; this is the only page
+that cites an actual release, because a prompt of this kind is much easier to copy
+than to describe.
+
+The track: a speed-rock song about a sleep-deprived engineer alone with overheating
+hardware at four in the morning, written in `procedure` stance — a checklist, recited
+in order, that never once admits it hurts. The act's three earlier covers were all
+cyborg skulls over ruined cities, which its own band definition forbids: *the
+dystopia is one man and a hot case, not a civilisation.* So the brief's first job was
+to correct that rather than repeat it.
+
+---
+
+Square album cover, 1:1, rendered at 1024x1024. Heavy metal / NWOBHM album art,
+painterly digital illustration with hard rendered detail — the visual register of a
+1982 speed metal sleeve, not a photograph and not clean modern 3D.
+
+CRITICAL — SCALE. This is an interior, one man, one machine, at four in the morning.
+NOT a landscape, NOT a ruined city, NOT a wasteland, NO power pylons, NO skyline, NO
+skulls, NO cyborg faces. The dystopia here is a hot room, not a civilisation. If it
+looks like the end of the world, it is wrong; it should look like the end of a shift.
+
+Subject, centre frame: a beige-grey consumer computer tower standing upright with its
+side panel removed and leaning against it. The guts are exposed — graphics card,
+ribbon cables, dust, a rat's nest of wiring. A cheap plastic desk fan is aimed
+directly into the open side, its blades motion-blurred. Visible heat distortion rising
+off the top panel, air shimmering.
+
+One human element only: a bare forearm and open palm entering from the right, caught
+mid-retreat, pulling back from the top panel with the fingers curling. Skin lit orange
+from below. No face, no body, no figure — just the hand that has touched something too
+hot. The palm is the emotional content of the whole image.
+
+Light: it is 04:00 in a dark room. The ONLY light sources are (a) red internal LEDs
+and amber heat glow spilling out of the open case, and (b) the cold white-blue wash of
+a monitor off to the left. Everything else falls into near-black. Deep shadow, high
+contrast, rim-lit edges on the chassis.
+
+Palette: the band's established one, held at interior scale — oxidised rust orange,
+blood red, hot amber, against dark desaturated teal-grey shadow. Grime, dust, thermal
+scorch marks on the metal.
+
+THE GLITCH — this is the point of the image, render it legibly:
+On the monitor at the left edge, white monospace terminal text on black, slightly out
+of focus but readable. It shows a kernel log line:
+
+    [04:12:07] Out of memory: Killed process 3941 (hope)
+
+The word "hope" in the parentheses must be legible. That is the whole idea: the
+machine reports killing a process named hope. Do not correct it, do not substitute a
+plausible technical word.
+
+Typography:
+- Top of frame: the band name in a jagged, spiked, chrome-and-rust metal band
+  logotype — sharp angular serifs, distressed metal texture, the classic speed metal
+  wordmark.
+- Bottom of frame: the track title stamped on a riveted, scorched steel plate bolted
+  into the composition, weathered stencil lettering.
+- Somewhere in shadow, small: a cheap LED alarm clock reading 04:12.
+
+DELIBERATE RENDER DEGRADATION, and leave it in: allow a horizontal band across the
+lower third where the image tears into visible compression blocks and the detail
+collapses, as though the render failed part-way through a pass. Do not smooth it, do
+not blend it out. One letter on the steel title plate should be malformed or
+double-struck, as if the stamp slipped.
+
+Grainy, hot, cramped, oppressive, and physical. No text other than what is specified.
+
+---
+
+## What came back, and why it matters
+
+The briefed glitch landed: the monitor shows `Killed process 3941 (hope)`, legibly.
+That is the song's own measured vocal failure — a transcript heard "hope" where the
+lyric said "OOM" — quoted into the image on purpose.
+
+Then the part nobody asked for. The same line reads **`Out of memery:`** instead of
+`Out of memory:`. The generator ran out of memory writing the words *out of memory*,
+and on a label whose argument is about machine-made culture, "memery" reads as
+meme-ery. It was kept, named, and logged as a glitch entry in its own right — anchored
+to a region on the image rather than a timecode, and recorded as observed rather than
+measured, because a person read it off a screen and no tool verified it.
+
+That is the distinction worth taking from this page. **The defect you brief is
+designed; it makes the idea visible. The defect you keep is the idea.** So when an
+image comes back, read it closely before re-rolling — and zoom in on small text, which
+is exactly where a thumbnail looks like noise and an accident hides.
+"""
+
+
 HONESTY = """\
 # Honesty rules for a notebook
 
@@ -382,7 +475,17 @@ in the concrete — the room, the hour, one physical object — and then quote t
 divergence: what was written, what came out instead. Do not explain why it is
 interesting and do not claim it was intended. It was kept; that is the statement.
 
-### 7. Keep a spent list
+### 7. Then the cover
+
+Paste **08-prompt-write-artwork.md**. It goes after the caption for the same reason
+the caption goes after the render: the strongest covers put the song's own kept
+failure into the image, and until the take exists there is no failure to put there.
+
+**09-example-artwork-prompt.md** is a real one, with what it produced and what it got
+wrong. It is the only page in this kit that cites an actual release, because a prompt
+of that kind is far easier to copy than to describe.
+
+### 8. Keep a spent list
 
 The first time you notice a phrase recurring, write it down in a source file. That
 list is the single most useful thing you will build, and it only works if you
@@ -392,7 +495,7 @@ a rut, and you will not notice it by memory.
 ## What this kit deliberately does not do
 
 It does not measure. A notebook can read and it can listen; it cannot inspect a
-waveform. **08-honesty-rules.md** covers what follows from that — the short
+waveform. **10-honesty-rules.md** covers what follows from that — the short
 version is that any timecode a notebook produces is invented, so anchor
 observations to section and phrase instead.
 
@@ -422,11 +525,28 @@ def build_fresh() -> Bundle:
         # what actually happened, including the failures that were kept, so it
         # cannot be written before the render and the cover exist.
         ("07", "write-caption"),
+        ("08", "write-artwork"),
     ):
         files.append(
             BundleFile(f"{num}-prompt-{pid}.md", _render_for_notebook(pid, FRESH_REFS))
         )
-    files.append(BundleFile("08-honesty-rules.md", HONESTY))
+    # A worked example. It lives in the BUNDLE rather than in a prompt template
+    # because a kit is for teaching and an example teaches better than a
+    # description, while the template it illustrates stays generic and fillable.
+    #
+    # It also names no act, no label and no track title — the song is described by
+    # what it is about. That is not squeamishness: an example that says "the act's
+    # earlier covers were off-model, here is the correction" is transferable, and
+    # one that says "Warhead" is trivia about somebody else's band.
+    #
+    # Worth being accurate about the wider claim, since it is easy to overstate:
+    # framework/ does carry this roster's band names in explanatory comments, where
+    # they cite the evidence a design decision came from. Those do not change
+    # behaviour. framework/tools/normalize_assets.py is the real exception — a
+    # one-off migration with one label's filenames hardcoded — and it should not be
+    # here at all.
+    files.append(BundleFile("09-example-artwork-prompt.md", EXAMPLE_ARTWORK))
+    files.append(BundleFile("10-honesty-rules.md", HONESTY))
     b.notebooks[""] = sorted(files, key=lambda f: f.name)
     return b
 
